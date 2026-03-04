@@ -1,69 +1,65 @@
 <!doctype html>
 <html lang="pt-br">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Anel BLE — Captura Total</title>
-  <style>
-    body{font-family:Arial,system-ui;margin:18px;background:#0b0f14;color:#e8f0ff}
-    .row{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
-    .card{background:#121821;border:1px solid #1b2a3a;padding:12px;border-radius:12px;margin-bottom:12px}
-    button{padding:10px 14px;border:0;border-radius:8px;background:#00aaff;color:#001018;font-weight:700;cursor:pointer}
-    button:disabled{opacity:.45;cursor:not-allowed}
-    input,select{padding:10px;border-radius:8px;border:1px solid #223;background:#0f172a;color:#e8f0ff}
-    input{width:min(520px,100%)}
-    #log{white-space:pre-wrap;background:#05070a;border:1px solid #113;color:#7CFC8A;
-         padding:12px;border-radius:12px;min-height:260px;max-height:420px;overflow:auto;
-         font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace}
-    .pill{display:inline-block;padding:4px 10px;border-radius:999px;background:#0f172a;border:1px solid #233}
-    .good{color:#7CFC8A}
-    .bad{color:#ff7a7a}
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Anel BLE — Final</title>
+<style>
+  body{font-family:Arial,system-ui;margin:18px;background:#0b0f14;color:#e8f0ff}
+  .row{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
+  .card{background:#121821;border:1px solid #1b2a3a;padding:12px;border-radius:12px;margin-bottom:12px}
+  button{padding:10px 14px;border:0;border-radius:8px;background:#00aaff;color:#001018;font-weight:700;cursor:pointer}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  input,select{padding:10px;border-radius:8px;border:1px solid #223;background:#0f172a;color:#e8f0ff}
+  input{width:min(520px,100%)}
+  #log{white-space:pre-wrap;background:#05070a;border:1px solid #113;color:#7CFC8A;
+       padding:12px;border-radius:12px;min-height:260px;max-height:420px;overflow:auto;
+       font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace}
+  .pill{display:inline-block;padding:4px 10px;border-radius:999px;background:#0f172a;border:1px solid #233}
+</style>
 </head>
 <body>
-  <h2>Anel BLE — Captura Total (Chrome / HTTPS)</h2>
 
-  <div class="card">
-    <div class="row">
-      <span class="pill" id="secure">secure: ...</span>
-      <span class="pill" id="ble">webbluetooth: ...</span>
-      <span class="pill" id="status">status: pronto</span>
-    </div>
+<h2>Anel BLE — Captura</h2>
 
-    <div class="row">
-      <button id="btnConnect">Conectar</button>
-      <button id="btnDisconnect" disabled>Desconectar</button>
-      <button id="btnClear">Limpar log</button>
-    </div>
-
-    <div class="row">
-      <span class="pill">Dispositivo: <b id="devName">-</b></span>
-      <span class="pill">Bateria: <b id="battery">--</b>%</span>
-      <span class="pill">HR: <b id="hr">--</b></span>
-    </div>
+<div class="card">
+  <div class="row">
+    <button id="btnPing">Testar Botão</button>
+    <span class="pill" id="status">status: pronto</span>
+    <span class="pill" id="secure">secure: ...</span>
+    <span class="pill" id="ble">webbluetooth: ...</span>
   </div>
 
-  <div class="card">
-    <div><b>Enviar comando (Texto ou HEX)</b></div>
-    <div class="row">
-      <select id="mode" disabled>
-        <option value="auto">Auto (detecta HEX)</option>
-        <option value="text">Texto</option>
-        <option value="hex">HEX</option>
-      </select>
-      <input id="cmd" disabled placeholder='Ex: START | MEAS | ou HEX: AA 55 0F 01' />
-      <button id="btnSend" disabled>Enviar</button>
-    </div>
-    <div class="row">
-      <button id="btnTryStart" disabled>Tentar iniciar medição (tentativas seguras)</button>
-      <span class="pill">⚠️ “Comando certo” precisa ser descoberto (protocolo do fabricante).</span>
-    </div>
+  <div class="row">
+    <button id="btnConnect">Conectar</button>
+    <button id="btnDisconnect" disabled>Desconectar</button>
+    <button id="btnClear">Limpar log</button>
   </div>
 
-  <div class="card">
-    <div><b>Log (tudo que chega via Notify + tudo que for Read)</b></div>
-    <div id="log"></div>
+  <div class="row">
+    <span class="pill">Dispositivo: <b id="devName">-</b></span>
+    <span class="pill">Bateria: <b id="battery">--</b>%</span>
+    <span class="pill">HR: <b id="hr">--</b></span>
   </div>
+</div>
+
+<div class="card">
+  <div><b>Enviar comando (Texto ou HEX)</b></div>
+  <div class="row">
+    <select id="mode" disabled>
+      <option value="auto">Auto (detecta HEX)</option>
+      <option value="text">Texto</option>
+      <option value="hex">HEX</option>
+    </select>
+    <input id="cmd" disabled placeholder='Ex: START  |  HEX: AA 55 0F 01  |  HEX: 0xAA 0x55 0x0F 0x01' />
+    <button id="btnSend" disabled>Enviar</button>
+  </div>
+</div>
+
+<div class="card">
+  <div><b>Log</b></div>
+  <div id="log"></div>
+</div>
 
 <script>
 (() => {
@@ -74,8 +70,6 @@
   const NUS_TX      = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
 
   let device=null, server=null;
-
-  // Preferência: escrever no NUS RX. Se não tiver, pega o 1º write que achar.
   let writeChar=null;
 
   function setStatus(t){ $("status").textContent = "status: " + t; }
@@ -99,9 +93,8 @@
     const t = s.trim();
     if(!t) return false;
     if(t.toLowerCase().includes("0x")) return true;
-    // se tiver só hex e separadores, provável HEX
     const clean = t.replace(/0x/gi,"").replace(/[^0-9a-fA-F]/g,"");
-    return clean.length >= 2 && clean.length % 2 === 0 && /^[0-9a-fA-F\s,:-]+$/.test(t);
+    return clean.length >= 2 && clean.length % 2 === 0;
   }
 
   function parseHex(s){
@@ -135,54 +128,50 @@
         const flags = u8[0];
         const is16 = (flags & 0x01) !== 0;
         const hr = is16 ? (u8[1] | (u8[2] << 8)) : u8[1];
-
-        // “contato detectado” é parte das flags (nem todo device usa direito)
-        const contactBits = (flags >> 1) & 0x03; // 0..3
+        const contactBits = (flags >> 1) & 0x03;
         const contactText = (contactBits === 3) ? "contato:SIM" : (contactBits === 2 ? "contato:NÃO" : "contato:?");
-
         $("hr").textContent = `${hr} bpm (${contactText})`;
-        log(`❤️ HR notify: ${hr} bpm | flags=0x${flags.toString(16)} | ${contactText} | raw=${bytesToHex(u8)}`);
+        log(`❤️ HR: ${hr} | ${contactText} | raw=${bytesToHex(u8)}`);
       });
-      log("❤️ Heart Rate notify ativo (180D/2A37).");
+      log("❤️ Heart Rate notify ativo.");
     }catch(e){
       log("❤️ Heart Rate: indisponível (" + e.message + ")");
     }
   }
 
-  async function subscribeAllNotifiesAndReadAllReads(){
+  async function bindNUSPreferentialWrite(){
+    try{
+      const nus = await server.getPrimaryService(NUS_SERVICE);
+      const rx  = await nus.getCharacteristic(NUS_RX);
+      const tx  = await nus.getCharacteristic(NUS_TX);
+      writeChar = rx;
+
+      await tx.startNotifications();
+      tx.addEventListener("characteristicvaluechanged", (ev)=>{
+        const u8 = new Uint8Array(ev.target.value.buffer);
+        let txt="";
+        try{ txt = new TextDecoder().decode(u8); }catch(_){}
+        const printable = txt && /[ -~]/.test(txt);
+        if(printable){
+          log(`📨 UART: "${txt.trim()}" | hex=${bytesToHex(u8)}`);
+        }else{
+          log(`📨 UART hex=${bytesToHex(u8)}`);
+        }
+      });
+
+      log("✅ Nordic UART ativo (RX write / TX notify).");
+    }catch(e){
+      log("ℹ️ Nordic UART não disponível (" + e.message + "). Vou usar fallback write.");
+    }
+  }
+
+  async function subscribeAllNotifiesAndFindWriteFallback(){
     const services = await server.getPrimaryServices();
-    log(`Serviços encontrados: ${services.length}`);
-
     for(const s of services){
-      log(`\n[SERVICE] ${s.uuid}`);
       const chars = await s.getCharacteristics();
-
       for(const c of chars){
-        const props = [];
-        if(c.properties.read) props.push("read");
-        if(c.properties.write) props.push("write");
-        if(c.properties.writeWithoutResponse) props.push("writeNoRsp");
-        if(c.properties.notify) props.push("notify");
-        if(c.properties.indicate) props.push("indicate");
-        log(`  [CHAR] ${c.uuid} | props: ${props.join(", ")||"(nenhuma)"}`);
+        if(!writeChar && (c.properties.write || c.properties.writeWithoutResponse)) writeChar = c;
 
-        // pega um writeChar fallback (se ainda não tiver)
-        if(!writeChar && (c.properties.write || c.properties.writeWithoutResponse)){
-          writeChar = c;
-        }
-
-        // lê tudo que der read
-        if(c.properties.read){
-          try{
-            const v = await c.readValue();
-            const u8 = new Uint8Array(v.buffer);
-            log(`    read: ${bytesToHex(u8)} (len=${u8.length})`);
-          }catch(e){
-            log(`    read: erro (${e.message})`);
-          }
-        }
-
-        // assina tudo que der notify/indicate
         if(c.properties.notify || c.properties.indicate){
           try{
             await c.startNotifications();
@@ -197,50 +186,19 @@
                 log(`🔔 notify ${c.uuid}: hex=${bytesToHex(u8)}`);
               }
             });
-            log(`    notify: ON`);
-          }catch(e){
-            log(`    notify: erro (${e.message})`);
-          }
+          }catch(_){}
         }
       }
     }
-  }
-
-  async function bindNUSPreferentialWrite(){
-    // Se existir NUS, usa RX como write principal
-    try{
-      const nus = await server.getPrimaryService(NUS_SERVICE);
-      const rx  = await nus.getCharacteristic(NUS_RX);
-      const tx  = await nus.getCharacteristic(NUS_TX);
-
-      writeChar = rx;
-
-      await tx.startNotifications();
-      tx.addEventListener("characteristicvaluechanged", (ev)=>{
-        const u8 = new Uint8Array(ev.target.value.buffer);
-        let txt="";
-        try{ txt = new TextDecoder().decode(u8); }catch(_){}
-        const printable = txt && /[ -~]/.test(txt);
-        if(printable){
-          log(`📨 UART TX: "${txt.trim()}" | hex=${bytesToHex(u8)}`);
-        }else{
-          log(`📨 UART TX: hex=${bytesToHex(u8)}`);
-        }
-      });
-
-      log("✅ Nordic UART ativo (RX write / TX notify).");
-    }catch(e){
-      log("ℹ️ Nordic UART não disponível no Chrome (" + e.message + "). Vou usar fallback write se existir.");
-    }
+    if(writeChar) log("✍️ WriteChar selecionada: " + writeChar.uuid);
   }
 
   async function sendCommand(cmdStr, mode){
-    if(!writeChar) throw new Error("Nenhuma característica de escrita disponível (writeChar).");
-
+    if(!writeChar) throw new Error("Nenhuma característica de escrita disponível.");
     const m = mode;
     const autoHex = looksHexAuto(cmdStr);
-
     let payload;
+
     if(m === "hex" || (m === "auto" && autoHex)){
       payload = parseHex(cmdStr);
       log("➡️ Enviando HEX: " + bytesToHex(payload));
@@ -263,28 +221,23 @@
   }
 
   async function connect(){
-    if(!navigator.bluetooth){
-      alert("Web Bluetooth não disponível. Use Chrome/Edge no PC.");
-      return;
-    }
-    if(!window.isSecureContext){
-      alert("Precisa ser HTTPS (GitHub Pages OK) ou localhost.");
-      return;
-    }
+    if(!navigator.bluetooth){ alert("Web Bluetooth não disponível."); return; }
+    if(!window.isSecureContext){ alert("Precisa HTTPS/localhost."); return; }
 
     try{
       setStatus("abrindo seletor...");
-      log("Abrindo seletor BLE...");
+      log("Abrindo seletor BLE (acceptAllDevices)...");
 
       device = await navigator.bluetooth.requestDevice({
         acceptAllDevices: true,
+        // ✅ 16-bit services têm que ser "0x...." ou UUID completo
         optionalServices: [
           NUS_SERVICE,
           "battery_service",
           "device_information",
           "heart_rate",
-          "fee7",
-          "ae00",
+          "0xfee7",
+          "0xae00",
           "be940000-7333-be46-b7ae-689e71722bd5"
         ]
       });
@@ -299,7 +252,6 @@
         $("mode").disabled = true;
         $("cmd").disabled = true;
         $("btnSend").disabled = true;
-        $("btnTryStart").disabled = true;
       });
 
       setStatus("conectando...");
@@ -311,19 +263,13 @@
       $("mode").disabled = false;
       $("cmd").disabled = false;
       $("btnSend").disabled = false;
-      $("btnTryStart").disabled = false;
 
       await readBatteryIfAny();
       await enableHeartRateIfAny();
-
-      // Preferir UART se existir
       await bindNUSPreferentialWrite();
+      await subscribeAllNotifiesAndFindWriteFallback();
 
-      // Captura geral (notify/read) para descobrir medidas
-      await subscribeAllNotifiesAndReadAllReads();
-
-      log("\n✅ Pronto. Agora coloque o anel no dedo e observe os pacotes no log.");
-      log("Dica: se HR mostrar 'contato:NÃO', o valor pode ser lixo/placeholder.");
+      log("✅ Pronto. Coloque o anel no dedo e observe o log.");
     }catch(e){
       log("ERRO connect: " + e.name + ": " + e.message);
       setStatus("erro");
@@ -340,31 +286,11 @@
     }
   }
 
-  // Tentativas “seguras” (texto) — não garantem, mas ajudam a descobrir resposta do firmware
-  async function tryStart(){
-    const tries = [
-      "START",
-      "MEAS",
-      "MEASURE",
-      "MEAS_START",
-      "START_MEAS",
-      "HR_START",
-      "SPO2_START"
-    ];
-    for(const t of tries){
-      try{
-        await sendCommand(t, "text");
-        await new Promise(r=>setTimeout(r, 200));
-      }catch(e){
-        log("Falha ao enviar '" + t + "': " + e.message);
-      }
-    }
-    log("Tentativas de texto enviadas. Se o anel usa comando BINÁRIO, precisamos descobrir o HEX correto pelo protocolo.");
-  }
+  $("btnPing").addEventListener("click", ()=>log("✅ Clique detectado (botão funcionando)"));
+  $("btnClear").addEventListener("click", ()=>{ $("log").textContent=""; log("Log limpo."); });
 
   $("btnConnect").addEventListener("click", ()=>{ $("log").textContent=""; connect(); });
   $("btnDisconnect").addEventListener("click", disconnect);
-  $("btnClear").addEventListener("click", ()=>{ $("log").textContent=""; log("Log limpo."); });
 
   $("btnSend").addEventListener("click", async ()=>{
     const cmd = $("cmd").value.trim();
@@ -376,9 +302,11 @@
     }
   });
 
-  $("btnTryStart").addEventListener("click", tryStart);
-
   envBadges();
+  $("btnDisconnect").disabled = true;
+  $("mode").disabled = true;
+  $("cmd").disabled = true;
+  $("btnSend").disabled = true;
 })();
 </script>
 </body>
