@@ -1,194 +1,332 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-br">
 <head>
-<meta charset="UTF-8">
-<title>Painel do Anel BLE</title>
-
-<style>
-body{
-font-family:Arial;
-background:#0b0f14;
-color:white;
-padding:20px;
-}
-
-button{
-padding:10px 15px;
-margin:5px;
-cursor:pointer;
-border:none;
-border-radius:6px;
-background:#00aaff;
-color:white;
-}
-
-input{
-padding:10px;
-width:300px;
-}
-
-.card{
-background:#121821;
-padding:15px;
-border-radius:10px;
-margin-bottom:15px;
-}
-
-#log{
-background:black;
-color:#00ff88;
-padding:10px;
-height:260px;
-overflow:auto;
-border-radius:8px;
-font-family:monospace;
-}
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Anel BLE - Painel</title>
+  <style>
+    body{font-family:Arial,system-ui;margin:18px;background:#0b0f14;color:#e8f0ff}
+    button{padding:10px 14px;border:0;border-radius:8px;background:#00aaff;color:#001018;font-weight:700;cursor:pointer}
+    button:disabled{opacity:.45;cursor:not-allowed}
+    input{padding:10px;border-radius:8px;border:1px solid #223;background:#111827;color:#e8f0ff;width:min(520px,100%)}
+    .row{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
+    .card{background:#121821;border:1px solid #1b2a3a;padding:12px;border-radius:12px}
+    #log{white-space:pre-wrap;background:#05070a;border:1px solid #113;color:#7CFC8A;padding:12px;border-radius:12px;min-height:260px;max-height:360px;overflow:auto;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace}
+    .pill{display:inline-block;padding:4px 10px;border-radius:999px;background:#0f172a;border:1px solid #233}
+    a{color:#7dd3fc}
+  </style>
 </head>
-
 <body>
+  <h2>Painel Bluetooth do Anel (Web Bluetooth)</h2>
 
-<h2>Painel Bluetooth do Anel</h2>
+  <div class="card">
+    <div class="row">
+      <button id="btnPing">Testar Botão</button>
+      <span class="pill" id="status">status: pronto</span>
+      <span class="pill" id="secure">secure: ...</span>
+      <span class="pill" id="ble">webbluetooth: ...</span>
+    </div>
 
-<div class="card">
-<button id="connect">Conectar</button>
-<button id="disconnect">Desconectar</button>
-</div>
+    <div class="row">
+      <button id="btnConnect">Conectar</button>
+      <button id="btnDisconnect" disabled>Desconectar</button>
+    </div>
 
-<div class="card">
-Bateria: <span id="battery">--</span> %
-</div>
+    <div class="row">
+      <span class="pill">Dispositivo: <b id="devName">-</b></span>
+      <span class="pill">Bateria: <b id="battery">--</b>%</span>
+      <span class="pill">HR (180D/2A37): <b id="hr">--</b></span>
+    </div>
+  </div>
 
-<div class="card">
-<input id="cmd" placeholder="comando ex: MEAS_START ou AA 55 0F 01">
-<button id="send">Enviar</button>
-</div>
+  <div class="card" style="margin-top:12px;">
+    <div><b>Enviar comando (UART RX ou fallback):</b></div>
+    <div class="row">
+      <input id="cmd" placeholder='Ex: MEAS_START  |  HEX: AA 55 0F 01  |  HEX: 0xAA 0x55 0x0F 0x01' disabled />
+      <button id="btnSend" disabled>Enviar</button>
+      <button id="btnSendTest" disabled>Enviar teste (MEAS_START)</button>
+    </div>
+  </div>
 
-<div class="card">
-<div id="log"></div>
-</div>
+  <div class="card" style="margin-top:12px;">
+    <div class="row">
+      <button id="btnClear">Limpar log</button>
+      <span class="pill">Dica: abra <b>F12 → Console</b> se quiser ver erros também.</span>
+    </div>
+    <div id="log"></div>
+  </div>
 
 <script>
+(() => {
+  // ====== UUIDs principais ======
+  const NUS_SERVICE = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+  const NUS_RX      = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"; // write
+  const NUS_TX      = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"; // notify
 
-const SERVICE_UART = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
-const RX = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
-const TX = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
+  const $ = (id) => document.getElementById(id);
 
-let device;
-let server;
-let rxChar;
-let txChar;
+  let device = null;
+  let server = null;
 
-function log(t){
-let logDiv=document.getElementById("log");
-logDiv.innerHTML+=t+"<br>";
-logDiv.scrollTop=logDiv.scrollHeight;
-}
+  let nusRx = null;
+  let nusTx = null;
 
-function hex(buffer){
-return [...new Uint8Array(buffer)]
-.map(x=>x.toString(16).padStart(2,"0"))
-.join(" ");
-}
+  // fallback (se o anel não tiver UART no Chrome)
+  let fallbackWrite = null;
 
-document.getElementById("connect").onclick=async()=>{
+  function setStatus(t){ $("status").textContent = "status: " + t; }
+  function log(msg){
+    const t = new Date().toLocaleTimeString();
+    $("log").textContent += `[${t}] ${msg}\n`;
+    $("log").scrollTop = $("log").scrollHeight;
+    console.log(msg);
+  }
 
-device = await navigator.bluetooth.requestDevice({
-acceptAllDevices:true,
-optionalServices:[
-SERVICE_UART,
-"battery_service",
-"device_information",
-"heart_rate",
-"fee7",
-"fea0",
-"fea1",
-"fea2",
-"ae00"
-]
-});
+  function bytesToHex(u8){
+    return Array.from(u8).map(b => b.toString(16).padStart(2,"0")).join(" ");
+  }
 
-log("Dispositivo: "+device.name);
+  function parseHex(s){
+    // aceita "AA 55 0F 01" ou "AA550F01" ou "0xAA 0x55"
+    const clean = s.replace(/0x/gi,"").replace(/[^0-9a-f]/gi,"");
+    if(clean.length === 0) throw new Error("HEX vazio");
+    if(clean.length % 2 !== 0) throw new Error("HEX inválido (número ímpar de chars)");
+    const out = new Uint8Array(clean.length/2);
+    for(let i=0;i<clean.length;i+=2){
+      out[i/2] = parseInt(clean.slice(i,i+2), 16);
+    }
+    return out;
+  }
 
-server=await device.gatt.connect();
+  function looksLikeHex(input){
+    // se tiver "0x" ou tiver só hex+espaços
+    const s = input.trim();
+    if(!s) return false;
+    if(s.toLowerCase().includes("0x")) return true;
+    // se contém letras fora de A-F, não é hex
+    // permite espaços
+    return /^[0-9a-fA-F\s]+$/.test(s) && /[a-fA-F]/.test(s);
+  }
 
-log("Conectado");
+  function enableConnectedUI(on){
+    $("btnDisconnect").disabled = !on;
+    $("cmd").disabled = !on;
+    $("btnSend").disabled = !on;
+    $("btnSendTest").disabled = !on;
+  }
 
-try{
+  function updateEnvBadges(){
+    $("secure").textContent = "secure: " + (window.isSecureContext ? "SIM" : "NÃO");
+    $("ble").textContent = "webbluetooth: " + (navigator.bluetooth ? "SIM" : "NÃO");
+  }
 
-let battService=await server.getPrimaryService("battery_service");
-let battChar=await battService.getCharacteristic("battery_level");
-let batt=await battChar.readValue();
+  // ====== Eventos globais de erro (pra não “parar” silencioso) ======
+  window.addEventListener("error", (e) => {
+    log("ERRO JS: " + (e.message || e.type));
+  });
+  window.addEventListener("unhandledrejection", (e) => {
+    log("PROMISE REJECTED: " + (e.reason?.message || e.reason || "erro"));
+  });
 
-document.getElementById("battery").innerText=batt.getUint8(0);
+  async function connect(){
+    try{
+      if(!navigator.bluetooth){
+        alert("Web Bluetooth não disponível. Use Chrome/Edge no PC.");
+        return;
+      }
+      if(!window.isSecureContext){
+        alert("Precisa estar em HTTPS (GitHub Pages OK) ou localhost.");
+        return;
+      }
 
-}catch(e){}
+      setStatus("abrindo seletor...");
+      log("Abrindo seletor BLE (acceptAllDevices)...");
 
-try{
+      device = await navigator.bluetooth.requestDevice({
+        acceptAllDevices: true,
+        optionalServices: [
+          NUS_SERVICE,
+          "battery_service",
+          "device_information",
+          "heart_rate",
+          "fee7",
+          "ae00",
+          "be940000-7333-be46-b7ae-689e71722bd5"
+        ]
+      });
 
-let uartService=await server.getPrimaryService(SERVICE_UART);
+      $("devName").textContent = device.name || "(sem nome)";
+      log("Dispositivo selecionado: " + (device.name || "(sem nome)"));
 
-rxChar=await uartService.getCharacteristic(RX);
-txChar=await uartService.getCharacteristic(TX);
+      device.addEventListener("gattserverdisconnected", () => {
+        log("⚠️ Desconectou.");
+        setStatus("desconectado");
+        enableConnectedUI(false);
+      });
 
-await txChar.startNotifications();
+      setStatus("conectando gatt...");
+      server = await device.gatt.connect();
+      log("GATT conectado.");
 
-txChar.addEventListener("characteristicvaluechanged",event=>{
+      enableConnectedUI(true);
+      setStatus("conectado");
 
-let data=event.target.value.buffer;
+      // ====== Bateria ======
+      try{
+        const battSvc = await server.getPrimaryService("battery_service");
+        const battChr = await battSvc.getCharacteristic("battery_level");
+        const v = await battChr.readValue();
+        $("battery").textContent = v.getUint8(0);
+        log("Bateria lida: " + v.getUint8(0) + "%");
+      }catch(e){
+        log("Bateria: não disponível (" + e.message + ")");
+      }
 
-let txt=new TextDecoder().decode(data);
+      // ====== Heart Rate (se existir) ======
+      try{
+        const hrSvc = await server.getPrimaryService("heart_rate");
+        const hrChr = await hrSvc.getCharacteristic("heart_rate_measurement"); // 2A37
+        await hrChr.startNotifications();
+        hrChr.addEventListener("characteristicvaluechanged", (ev) => {
+          const u8 = new Uint8Array(ev.target.value.buffer);
+          // flags:
+          const flags = u8[0];
+          const is16 = (flags & 0x01) !== 0;
+          const hr = is16 ? (u8[1] | (u8[2] << 8)) : u8[1];
+          $("hr").textContent = hr + " bpm";
+          // também loga contato se existir nos flags (bits 1-2)
+          const contactSupported = (flags & 0x04) !== 0 || (flags & 0x02) !== 0;
+          const contactDetected = (flags & 0x02) !== 0 && (flags & 0x04) !== 0; // alguns devices setam ambos
+          log(`HR notify: ${hr} bpm | flags=0x${flags.toString(16)} | raw=${bytesToHex(u8)}`
+              + (contactSupported ? (" | contact=" + (contactDetected ? "SIM" : "NÃO")) : ""));
+        });
+        log("Heart Rate notify ativo (2A37).");
+      }catch(e){
+        log("Heart Rate: não disponível (" + e.message + ")");
+      }
 
-log("RX texto: "+txt);
+      // ====== Nordic UART (NUS) ======
+      try{
+        const nusSvc = await server.getPrimaryService(NUS_SERVICE);
+        nusRx = await nusSvc.getCharacteristic(NUS_RX);
+        nusTx = await nusSvc.getCharacteristic(NUS_TX);
 
-log("RX hex: "+hex(data));
+        await nusTx.startNotifications();
+        nusTx.addEventListener("characteristicvaluechanged", (ev) => {
+          const u8 = new Uint8Array(ev.target.value.buffer);
+          let txt = "";
+          try { txt = new TextDecoder().decode(u8); } catch(_){}
+          const printable = txt && /[ -~]/.test(txt);
+          if(printable){
+            log(`UART TX texto: "${txt.trim()}" | hex=${bytesToHex(u8)}`);
+          }else{
+            log(`UART TX hex: ${bytesToHex(u8)}`);
+          }
+        });
 
-});
+        log("UART (NUS) ativo. RX(write) + TX(notify) OK.");
+      }catch(e){
+        nusRx = null; nusTx = null;
+        log("UART (NUS) não encontrado no Chrome (" + e.message + ")");
+        log("➡️ Sem UART, ainda dá para testar outros serviços, mas comandos podem não funcionar.");
+      }
 
-log("UART conectado");
+      // fallbackWrite: tenta achar algum char write em serviços “custom”
+      // (só pra você conseguir testar envio mesmo se NUS não aparecer no Chrome)
+      try{
+        const services = await server.getPrimaryServices();
+        for(const s of services){
+          const chars = await s.getCharacteristics();
+          for(const c of chars){
+            if(c.properties.write || c.properties.writeWithoutResponse){
+              fallbackWrite = c;
+              break;
+            }
+          }
+          if(fallbackWrite) break;
+        }
+        if(fallbackWrite){
+          log("Fallback write encontrado em char: " + fallbackWrite.uuid);
+        }
+      }catch(e){
+        // ignora
+      }
 
-}catch(e){
+    }catch(e){
+      log("ERRO connect: " + e.name + ": " + e.message);
+      setStatus("erro");
+      enableConnectedUI(false);
+    }
+  }
 
-log("UART não encontrado");
+  function disconnect(){
+    try{
+      if(device?.gatt?.connected) device.gatt.disconnect();
+      log("Desconectado manualmente.");
+      setStatus("desconectado");
+      enableConnectedUI(false);
+    }catch(e){
+      log("ERRO disconnect: " + e.message);
+    }
+  }
 
-}
+  async function sendCmd(cmdStr){
+    if(!device || !device.gatt.connected){
+      log("Não conectado.");
+      return;
+    }
+    const target = nusRx || fallbackWrite;
+    if(!target){
+      log("Nenhum characteristic de escrita disponível (RX).");
+      return;
+    }
 
-};
+    const useHex = looksLikeHex(cmdStr);
+    let payload;
+    if(useHex){
+      payload = parseHex(cmdStr);
+      log("Enviando HEX: " + bytesToHex(payload));
+    }else{
+      payload = new TextEncoder().encode(cmdStr);
+      log('Enviando TEXTO: "' + cmdStr + '"');
+    }
 
-document.getElementById("disconnect").onclick=()=>{
-if(device && device.gatt.connected){
-device.gatt.disconnect();
-log("Desconectado");
-}
-};
+    // muitos BLE limitam 20 bytes por write
+    const CHUNK = 20;
+    for(let i=0;i<payload.length;i+=CHUNK){
+      const slice = payload.slice(i,i+CHUNK);
+      if(target.properties?.writeWithoutResponse){
+        await target.writeValueWithoutResponse(slice);
+      }else{
+        await target.writeValue(slice);
+      }
+      log("TX enviado: " + bytesToHex(slice));
+      await new Promise(r=>setTimeout(r, 35));
+    }
+  }
 
-document.getElementById("send").onclick=async()=>{
+  // ====== Bind dos botões ======
+  $("btnPing").addEventListener("click", () => log("✅ Clique detectado (botão funcionando)"));
+  $("btnClear").addEventListener("click", () => { $("log").textContent = ""; log("Log limpo."); });
 
-let cmd=document.getElementById("cmd").value;
+  $("btnConnect").addEventListener("click", connect);
+  $("btnDisconnect").addEventListener("click", disconnect);
 
-if(!rxChar) return;
+  $("btnSend").addEventListener("click", async () => {
+    const cmd = $("cmd").value.trim();
+    if(!cmd){ log("Digite um comando."); return; }
+    await sendCmd(cmd);
+  });
 
-if(cmd.includes(" ")){
+  $("btnSendTest").addEventListener("click", async () => {
+    await sendCmd("MEAS_START");
+  });
 
-let bytes=cmd.split(" ").map(x=>parseInt(x,16));
-
-await rxChar.writeValue(new Uint8Array(bytes));
-
-log("TX HEX: "+cmd);
-
-}else{
-
-let enc=new TextEncoder();
-
-await rxChar.writeValue(enc.encode(cmd));
-
-log("TX TEXT: "+cmd);
-
-}
-
-};
-
+  // init
+  updateEnvBadges();
+  enableConnectedUI(false);
+  log("Página carregou. Clique em 'Testar Botão' para validar clique.");
+})();
 </script>
-
 </body>
 </html>
