@@ -2,255 +2,171 @@
 <html lang="pt-br">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Leitor BLE do Anel (NUS)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Scanner BLE (Anel)</title>
   <style>
-    body{font-family:Arial, sans-serif; margin:20px}
-    button{padding:10px 14px; margin:6px 6px 6px 0; cursor:pointer}
-    input, select{padding:10px; width:360px; max-width:100%}
-    .row{margin:10px 0}
-    #log{white-space:pre-wrap; background:#0b0f14; color:#9ef99a; padding:12px; border-radius:8px; min-height:240px}
-    .pill{display:inline-block; padding:4px 10px; border-radius:999px; background:#eee; margin-left:8px}
+    body { font-family: Arial, sans-serif; padding: 18px; }
+    button { padding: 10px 14px; font-size: 16px; cursor: pointer; }
+    pre { background:#0b0b0b; color:#7CFC00; padding:12px; border-radius:10px; overflow:auto; min-height: 240px; }
+    .row { display:flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
   </style>
 </head>
 <body>
+  <h1>Scanner BLE (Listar Serviços)</h1>
 
-<h2>Leitor BLE do Anel (Nordic UART Service)</h2>
+  <div class="row">
+    <button id="btnConnect">Conectar e listar</button>
+    <button id="btnDisconnect" disabled>Desconectar</button>
+  </div>
 
-<div class="row">
-  <button id="btnConnect">Conectar</button>
-  <button id="btnDisconnect" disabled>Desconectar</button>
-  <span id="status" class="pill">Desconectado</span>
-</div>
-
-<div class="row">
-  <strong>Dispositivo:</strong> <span id="devName">-</span>
-</div>
-
-<hr/>
-
-<h3>Recebimento (Notify - TX)</h3>
-<div class="row">
-  <button id="btnStartNotify" disabled>Iniciar Notify</button>
-  <button id="btnStopNotify" disabled>Parar Notify</button>
-</div>
-
-<hr/>
-
-<h3>Enviar comando (Write - RX)</h3>
-<div class="row">
-  <select id="mode" disabled>
-    <option value="text">Texto (UTF-8)</option>
-    <option value="hex">HEX (ex: AA 55 0F 01)</option>
-  </select>
-</div>
-
-<div class="row">
-  <input id="cmd" disabled placeholder="Ex: MEAS_START  (ou)  AA 55 0F 01" />
-</div>
-
-<div class="row">
-  <button id="btnSend" disabled>Enviar</button>
-  <button id="btnTestHex" disabled>Teste HEX (AA 55 0F 01)</button>
-</div>
-
-<hr/>
-
-<h3>Log</h3>
-<div id="log"></div>
+  <pre id="log"></pre>
 
 <script>
-  // Nordic UART Service (NUS)
-  const NUS_SERVICE = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
-  const NUS_RX_CHAR = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"; // Write
-  const NUS_TX_CHAR = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"; // Notify
+const logEl = document.getElementById('log');
+const btnConnect = document.getElementById('btnConnect');
+const btnDisconnect = document.getElementById('btnDisconnect');
 
-  let device = null;
-  let server = null;
-  let rxChar = null;
-  let txChar = null;
+let device = null;
+let server = null;
 
-  const $ = (id)=>document.getElementById(id);
+function log(msg) {
+  logEl.textContent += msg + "\n";
+  logEl.scrollTop = logEl.scrollHeight;
+}
 
-  function logLine(msg){
-    const t = new Date().toLocaleTimeString();
-    $("log").textContent += `[${t}] ${msg}\n`;
-    $("log").scrollTop = $("log").scrollHeight;
+function hex(u8) {
+  return [...u8].map(b=>b.toString(16).padStart(2,'0')).join(' ');
+}
+
+function isWebBluetoothSupported() {
+  return !!navigator.bluetooth;
+}
+
+async function connectAndList() {
+  if (!isWebBluetoothSupported()) {
+    log("❌ Seu navegador não suporta Web Bluetooth. Use Chrome no PC.");
+    return;
   }
 
-  function setStatus(text){
-    $("status").textContent = text;
-  }
+  log("Abrindo seletor BLE...");
+  // IMPORTANTÍSSIMO: sem filters, para não “sumir” o anel
+  device = await navigator.bluetooth.requestDevice({
+    acceptAllDevices: true,
+    optionalServices: [
+      'device_information',
+      'battery_service',
+      'heart_rate',
 
-  function toHex(u8){
-    return Array.from(u8).map(b=>b.toString(16).padStart(2,"0")).join(" ");
-  }
+      // Nordic UART (muito comum)
+      '6e400001-b5a3-f393-e0a9-e50e24dcca9e',
 
-  function parseHexString(str){
-    // aceita "AA 55 0F 01" ou "AA550F01"
-    const clean = str.replace(/0x/g,"").replace(/[^0-9a-fA-F]/g,"");
-    if(clean.length % 2 !== 0) throw new Error("HEX inválido: número ímpar de caracteres");
-    const out = new Uint8Array(clean.length/2);
-    for(let i=0;i<clean.length;i+=2){
-      out[i/2] = parseInt(clean.slice(i,i+2), 16);
-    }
-    return out;
-  }
+      // Seus “unknowns” que você viu no app
+      'fee7',
+      'fea0',
+      'fea1',
+      'fea2',
+      'ae00',
 
-  async function connect(){
-    try{
-      logLine("Abrindo seletor BLE...");
-      device = await navigator.bluetooth.requestDevice({
-        filters: [{ services: [NUS_SERVICE] }],
-        optionalServices: [NUS_SERVICE]
-      });
+      // Esse que você viu: BE94....
+      'be940000-7333-be46-b7ae-689e71722bd5'
+    ]
+  });
 
-      $("devName").textContent = device.name || "(sem nome)";
-      device.addEventListener("gattserverdisconnected", onDisconnected);
+  log(`Dispositivo escolhido: ${device.name || '(sem nome)'} | id: ${device.id}`);
 
-      logLine(`Dispositivo selecionado: ${device.name || "(sem nome)"}`);
-      setStatus("Conectando...");
+  device.addEventListener('gattserverdisconnected', () => {
+    log("⚠️ Desconectado.");
+    btnDisconnect.disabled = true;
+  });
 
-      server = await device.gatt.connect();
-      logLine("GATT conectado: true");
+  log("Conectando GATT...");
+  server = await device.gatt.connect();
+  log("✅ GATT conectado.");
 
-      const service = await server.getPrimaryService(NUS_SERVICE);
-      rxChar = await service.getCharacteristic(NUS_RX_CHAR);
-      txChar = await service.getCharacteristic(NUS_TX_CHAR);
+  btnDisconnect.disabled = false;
 
-      logLine("Serviço NUS OK. RX/TX obtidos.");
+  // Lista serviços e characteristics
+  log("Listando serviços...");
+  const services = await server.getPrimaryServices();
+  log(`Serviços primários encontrados: ${services.length}`);
 
-      $("btnDisconnect").disabled = false;
-      $("btnStartNotify").disabled = false;
-      $("mode").disabled = false;
-      $("cmd").disabled = false;
-      $("btnSend").disabled = false;
-      $("btnTestHex").disabled = false;
+  for (const s of services) {
+    log(`\n[SERVICE] ${s.uuid}`);
+    const chars = await s.getCharacteristics();
+    for (const c of chars) {
+      const props = Object.entries(c.properties).filter(([k,v])=>v).map(([k])=>k).join(', ');
+      log(`  [CHAR] ${c.uuid} | props: ${props}`);
 
-      setStatus("Conectado");
-    }catch(e){
-      logLine(`ERRO: ${e.name}: ${e.message}`);
-      setStatus("Erro");
-    }
-  }
-
-  async function disconnect(){
-    try{
-      if(txChar){
-        try{ await txChar.stopNotifications(); }catch(_){}
-        txChar.removeEventListener("characteristicvaluechanged", onNotify);
+      // Tenta ler se der
+      if (c.properties.read) {
+        try {
+          const v = await c.readValue();
+          const u8 = new Uint8Array(v.buffer);
+          log(`    read: ${hex(u8)}  (len=${u8.length})`);
+        } catch (e) {
+          log(`    read: erro (${e.message})`);
+        }
       }
-      if(device && device.gatt.connected){
-        device.gatt.disconnect();
+
+      // Assina notify se der
+      if (c.properties.notify || c.properties.indicate) {
+        try {
+          await c.startNotifications();
+          c.addEventListener('characteristicvaluechanged', (ev) => {
+            const dv = ev.target.value;
+            const u8 = new Uint8Array(dv.buffer);
+
+            // Se for Heart Rate Measurement (0x2A37) tenta decodificar
+            if (c.uuid.endsWith('2a37')) {
+              const flags = u8[0];
+              const hr16 = (flags & 0x01) !== 0;
+              const hr = hr16 ? (u8[1] | (u8[2] << 8)) : u8[1];
+              log(`❤️ HR notify: ${hr} bpm | raw: ${hex(u8)}`);
+            } else {
+              // Geral: tenta texto + raw
+              const text = new TextDecoder().decode(u8);
+              log(`🔔 notify ${c.uuid}: "${text}" | raw: ${hex(u8)}`);
+            }
+          });
+          log(`    notify: ON`);
+        } catch (e) {
+          log(`    notify: erro (${e.message})`);
+        }
       }
-      onDisconnected();
-    }catch(e){
-      logLine(`ERRO ao desconectar: ${e.message}`);
     }
   }
 
-  function onDisconnected(){
-    logLine("Desconectado.");
-    setStatus("Desconectado");
-
-    $("btnDisconnect").disabled = true;
-    $("btnStartNotify").disabled = true;
-    $("btnStopNotify").disabled = true;
-    $("mode").disabled = true;
-    $("cmd").disabled = true;
-    $("btnSend").disabled = true;
-    $("btnTestHex").disabled = true;
-
-    server = null; rxChar = null; txChar = null;
+  // Tenta usar Nordic UART especificamente (se existir)
+  try {
+    const uart = await server.getPrimaryService('6e400001-b5a3-f393-e0a9-e50e24dcca9e');
+    const rx = await uart.getCharacteristic('6e400002-b5a3-f393-e0a9-e50e24dcca9e'); // write
+    const tx = await uart.getCharacteristic('6e400003-b5a3-f393-e0a9-e50e24dcca9e'); // notify
+    await tx.startNotifications();
+    tx.addEventListener('characteristicvaluechanged', (ev) => {
+      const u8 = new Uint8Array(ev.target.value.buffer);
+      const text = new TextDecoder().decode(u8);
+      log(`📨 UART TX: "${text}" | raw: ${hex(u8)}`);
+    });
+    log("\n✅ Nordic UART detectado. Enviando 'MEAS_START'...");
+    await rx.writeValue(new TextEncoder().encode("MEAS_START"));
+  } catch (e) {
+    log(`\nℹ️ Nordic UART não encontrado/sem permissão: ${e.message}`);
   }
+}
 
-  async function startNotify(){
-    try{
-      if(!txChar) throw new Error("TX não disponível");
-      await txChar.startNotifications();
-      txChar.addEventListener("characteristicvaluechanged", onNotify);
-      logLine("Notify iniciado (TX).");
-      $("btnStartNotify").disabled = true;
-      $("btnStopNotify").disabled = false;
-    }catch(e){
-      logLine(`ERRO notify: ${e.name}: ${e.message}`);
-    }
+async function disconnect() {
+  if (device?.gatt?.connected) {
+    device.gatt.disconnect();
   }
+  btnDisconnect.disabled = true;
+  log("Desconectado manualmente.");
+}
 
-  async function stopNotify(){
-    try{
-      if(!txChar) return;
-      await txChar.stopNotifications();
-      txChar.removeEventListener("characteristicvaluechanged", onNotify);
-      logLine("Notify parado (TX).");
-      $("btnStartNotify").disabled = false;
-      $("btnStopNotify").disabled = true;
-    }catch(e){
-      logLine(`ERRO stop notify: ${e.message}`);
-    }
-  }
-
-  function onNotify(ev){
-    const v = new Uint8Array(ev.target.value.buffer);
-    // tenta texto + mostra hex
-    let asText = "";
-    try{ asText = new TextDecoder().decode(v); }catch(_){}
-    const hex = toHex(v);
-
-    // se tiver texto legível, mostra; senão mostra só HEX
-    const printable = asText && /[ -~]/.test(asText);
-    if(printable){
-      logLine(`RX (TX notify) texto: ${asText.trim()} | hex: ${hex}`);
-    }else{
-      logLine(`RX (TX notify) hex: ${hex}`);
-    }
-  }
-
-  async function sendCmd(payloadU8){
-    if(!rxChar) throw new Error("RX não disponível");
-    // alguns dispositivos limitam 20 bytes por write
-    const CHUNK = 20;
-    for(let i=0;i<payloadU8.length;i+=CHUNK){
-      const slice = payloadU8.slice(i,i+CHUNK);
-      await rxChar.writeValueWithoutResponse(slice);
-      logLine(`TX (RX write) enviado: ${toHex(slice)}`);
-      await new Promise(r=>setTimeout(r, 40));
-    }
-  }
-
-  async function sendFromUI(){
-    try{
-      const mode = $("mode").value;
-      const cmd = $("cmd").value.trim();
-      if(!cmd) return;
-
-      if(mode === "text"){
-        const u8 = new TextEncoder().encode(cmd);
-        await sendCmd(u8);
-      }else{
-        const u8 = parseHexString(cmd);
-        await sendCmd(u8);
-      }
-    }catch(e){
-      logLine(`ERRO envio: ${e.message}`);
-    }
-  }
-
-  $("btnConnect").onclick = connect;
-  $("btnDisconnect").onclick = disconnect;
-  $("btnStartNotify").onclick = startNotify;
-  $("btnStopNotify").onclick = stopNotify;
-  $("btnSend").onclick = sendFromUI;
-  $("btnTestHex").onclick = async ()=>{
-    try{
-      $("mode").value = "hex";
-      $("cmd").value = "AA 55 0F 01";
-      await sendFromUI();
-    }catch(e){
-      logLine(`ERRO teste: ${e.message}`);
-    }
-  };
+btnConnect.addEventListener('click', () => {
+  logEl.textContent = "";
+  connectAndList().catch(err => log("ERRO: " + err.message));
+});
+btnDisconnect.addEventListener('click', () => disconnect());
 </script>
-
 </body>
 </html>
