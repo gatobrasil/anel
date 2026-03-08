@@ -3,160 +3,46 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Scanner BLE SmartHealth</title>
+  <title>Teste de Comandos do Anel</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f4f7fb;
-      color: #1f2937;
-      margin: 0;
-      padding: 20px;
-    }
-
-    .container {
-      max-width: 1100px;
-      margin: 0 auto;
-    }
-
-    h1 {
-      margin-bottom: 8px;
-    }
-
-    .card {
-      background: #fff;
-      border-radius: 16px;
-      padding: 18px;
-      margin-top: 16px;
-      box-shadow: 0 4px 18px rgba(0,0,0,0.08);
-    }
-
-    button {
-      padding: 12px 16px;
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
-      font-size: 15px;
-      margin-right: 8px;
-      margin-bottom: 8px;
-    }
-
-    #connectBtn { background: #2563eb; color: white; }
-    #disconnectBtn { background: #6b7280; color: white; }
-    #sendBtn { background: #059669; color: white; }
-    #clearBtn { background: #dc2626; color: white; }
-
-    input, select, textarea {
-      width: 100%;
-      padding: 10px 12px;
-      border-radius: 10px;
-      border: 1px solid #d1d5db;
-      font-size: 14px;
-      box-sizing: border-box;
-      margin-top: 6px;
-    }
-
-    pre {
-      background: #111827;
-      color: #10b981;
-      padding: 14px;
-      border-radius: 12px;
-      white-space: pre-wrap;
-      word-break: break-word;
-      min-height: 140px;
-      overflow-x: auto;
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-    }
-
-    .small {
-      font-size: 14px;
-      color: #4b5563;
-    }
-
-    .label {
-      font-weight: bold;
-    }
-
-    .mono {
-      font-family: Consolas, Monaco, monospace;
-    }
-
-    .good {
-      color: #059669;
-      font-weight: bold;
-    }
-
-    .warn {
-      color: #b45309;
-      font-weight: bold;
-    }
-
-    @media (max-width: 900px) {
-      .grid {
-        grid-template-columns: 1fr;
-      }
-    }
+    body { font-family: Arial, sans-serif; background:#f4f7fb; margin:0; padding:20px; color:#1f2937; }
+    .wrap { max-width: 1000px; margin: 0 auto; }
+    .card { background:#fff; border-radius:16px; padding:18px; margin-top:16px; box-shadow:0 4px 18px rgba(0,0,0,.08); }
+    button { padding:12px 14px; margin:6px 6px 0 0; border:none; border-radius:10px; cursor:pointer; font-size:14px; }
+    .primary { background:#2563eb; color:#fff; }
+    .green { background:#059669; color:#fff; }
+    .red { background:#dc2626; color:#fff; }
+    .gray { background:#6b7280; color:#fff; }
+    pre { background:#111827; color:#10b981; padding:14px; border-radius:12px; white-space:pre-wrap; word-break:break-word; min-height:160px; }
+    input { width:100%; padding:10px; border-radius:10px; border:1px solid #d1d5db; box-sizing:border-box; margin-top:8px; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Scanner BLE SmartHealth</h1>
-    <div class="small">
-      Focado nos UUIDs proprietários encontrados no app. Use para descobrir canais de comando e resposta do anel.
+  <div class="wrap">
+    <div class="card">
+      <h2>Teste de Comandos do Anel</h2>
+      <button class="primary" id="connectBtn">Conectar</button>
+      <button class="gray" id="disconnectBtn">Desconectar</button>
+      <p><strong>Status:</strong> <span id="status">Desconectado</span></p>
+      <p><strong>Dispositivo:</strong> <span id="deviceName">---</span></p>
     </div>
 
     <div class="card">
-      <button id="connectBtn">Conectar e varrer</button>
-      <button id="disconnectBtn">Desconectar</button>
-      <button id="clearBtn">Limpar log</button>
+      <h3>Testes rápidos</h3>
+      <button class="green" id="test01">Enviar 01</button>
+      <button class="green" id="test0101">Enviar 01 01</button>
+      <button class="green" id="testA101">Enviar A1 01</button>
+      <button class="green" id="testA201">Enviar A2 01</button>
+      <button class="red" id="testStop">Enviar 00</button>
 
-      <p><span class="label">Status:</span> <span id="status">Desconectado</span></p>
-      <p><span class="label">Dispositivo:</span> <span id="deviceName">---</span></p>
-      <p><span class="label">Canais de escrita encontrados:</span> <span id="writeCount">0</span></p>
-      <p><span class="label">Canais notify encontrados:</span> <span id="notifyCount">0</span></p>
-    </div>
-
-    <div class="grid">
-      <div class="card">
-        <h3>Characteristics candidatas</h3>
-        <label class="label" for="writeCharSelect">Characteristic de escrita</label>
-        <select id="writeCharSelect">
-          <option value="">Nenhuma selecionada</option>
-        </select>
-
-        <label class="label" for="notifyCharSelect" style="margin-top:10px; display:block;">Characteristic de notify/indicate</label>
-        <select id="notifyCharSelect">
-          <option value="">Nenhuma selecionada</option>
-        </select>
-
-        <label class="label" for="hexInput" style="margin-top:10px; display:block;">Comando HEX</label>
-        <input id="hexInput" placeholder="Ex.: A1 01 ou 01 00 FF" />
-
-        <button id="sendBtn">Enviar comando HEX</button>
-
-        <div class="small">
-          Use apenas no seu próprio anel. Comece com testes curtos e registre a resposta no log.
-        </div>
-      </div>
-
-      <div class="card">
-        <h3>UUIDs alvo do app</h3>
-        <pre id="targetsLog"></pre>
-      </div>
+      <p style="margin-top:12px;"><strong>Comando manual HEX</strong></p>
+      <input id="hexInput" placeholder="Ex.: 01 ou A1 01 ou FF 00 01" />
+      <button class="primary" id="sendManualBtn">Enviar manual</button>
     </div>
 
     <div class="card">
-      <h3>Serviços e characteristics</h3>
-      <pre id="servicesLog"></pre>
-    </div>
-
-    <div class="card">
-      <h3>Notificações e respostas</h3>
-      <pre id="dataLog"></pre>
+      <h3>Log</h3>
+      <pre id="log"></pre>
     </div>
   </div>
 
@@ -164,364 +50,214 @@
     let device = null;
     let server = null;
 
+    let hrNotify = null;
+
+    let uartWrite = null;
+    let uartNotify = null;
+
+    let beWrite = null;
+    let beNotify = null;
+
+    let aeWrite = null;
+    let aeNotify = null;
+
+    const logEl = document.getElementById("log");
     const statusEl = document.getElementById("status");
     const deviceNameEl = document.getElementById("deviceName");
-    const writeCountEl = document.getElementById("writeCount");
-    const notifyCountEl = document.getElementById("notifyCount");
-    const servicesLogEl = document.getElementById("servicesLog");
-    const dataLogEl = document.getElementById("dataLog");
-    const targetsLogEl = document.getElementById("targetsLog");
-    const writeCharSelect = document.getElementById("writeCharSelect");
-    const notifyCharSelect = document.getElementById("notifyCharSelect");
-    const hexInput = document.getElementById("hexInput");
 
-    const characteristicMap = new Map();
-    const notifyHandlers = new Map();
-
-    const TARGET_UUIDS = [
-      "0000180d-0000-1000-8000-00805f9b34fb",
-      "00002a37-0000-1000-8000-00805f9b34fb",
-      "00002a38-0000-1000-8000-00805f9b34fb",
-
-      "be940000-7333-be46-b7ae-689e71722bd5",
-      "be940001-7333-be46-b7ae-689e71722bd5",
-      "be940002-7333-be46-b7ae-689e71722bd5",
-      "be940003-7333-be46-b7ae-689e71722bd5",
-
-      "6e400001-b5a3-f393-e0a9-e50e24dcca9e",
-      "6e400002-b5a3-f393-e0a9-e50e24dcca9e",
-      "6e400003-b5a3-f393-e0a9-e50e24dcca9e",
-
-      "0000ae00-0000-1000-8000-00805f9b34fb",
-      "0000ae01-0000-1000-8000-00805f9b34fb",
-      "0000ae02-0000-1000-8000-00805f9b34fb",
-
-      "0000fe59-0000-1000-8000-00805f9b34fb"
-    ];
-
-    const OPTIONAL_SERVICES = [
-      "generic_access",
-      "generic_attribute",
-      "heart_rate",
-      "battery_service",
-      "device_information",
-      "be940000-7333-be46-b7ae-689e71722bd5",
-      "6e400001-b5a3-f393-e0a9-e50e24dcca9e",
-      "0000ae00-0000-1000-8000-00805f9b34fb",
-      "0000fe59-0000-1000-8000-00805f9b34fb"
-    ];
-
-    function setStatus(text) {
-      statusEl.textContent = text;
+    function log(msg) {
+      const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
+      logEl.textContent += line + "\n";
+      logEl.scrollTop = logEl.scrollHeight;
+      console.log(line);
     }
 
-    function logServices(text = "") {
-      servicesLogEl.textContent += text + "\n";
-      servicesLogEl.scrollTop = servicesLogEl.scrollHeight;
-      console.log(text);
+    function setStatus(msg) {
+      statusEl.textContent = msg;
     }
 
-    function logData(text = "") {
-      dataLogEl.textContent += text + "\n";
-      dataLogEl.scrollTop = dataLogEl.scrollHeight;
-      console.log(text);
-    }
-
-    function clearLogs() {
-      servicesLogEl.textContent = "";
-      dataLogEl.textContent = "";
+    function hexToBytes(hex) {
+      const clean = hex.replace(/[^0-9a-fA-F]/g, "");
+      if (!clean || clean.length % 2 !== 0) throw new Error("HEX inválido");
+      const arr = [];
+      for (let i = 0; i < clean.length; i += 2) {
+        arr.push(parseInt(clean.slice(i, i + 2), 16));
+      }
+      return new Uint8Array(arr);
     }
 
     function bytesToHex(buffer) {
-      return [...new Uint8Array(buffer)]
-        .map(b => b.toString(16).padStart(2, "0"))
-        .join(" ");
+      return [...new Uint8Array(buffer)].map(b => b.toString(16).padStart(2, "0")).join(" ");
     }
 
-    function bytesToAscii(buffer) {
+    function parseHeartRate(dataView) {
+      const flags = dataView.getUint8(0);
+      const is16Bit = flags & 0x01;
+      return is16Bit ? dataView.getUint16(1, true) : dataView.getUint8(1);
+    }
+
+    function handleHR(event) {
       try {
-        return new TextDecoder().decode(buffer);
-      } catch {
-        return "";
-      }
-    }
-
-    function normalizeUuid(uuid) {
-      return String(uuid).toLowerCase();
-    }
-
-    function isTargetUuid(uuid) {
-      return TARGET_UUIDS.includes(normalizeUuid(uuid));
-    }
-
-    function addOption(selectEl, value, label) {
-      const option = document.createElement("option");
-      option.value = value;
-      option.textContent = label;
-      selectEl.appendChild(option);
-    }
-
-    function resetSelectors() {
-      writeCharSelect.innerHTML = '<option value="">Nenhuma selecionada</option>';
-      notifyCharSelect.innerHTML = '<option value="">Nenhuma selecionada</option>';
-    }
-
-    function hexStringToUint8Array(hexString) {
-      const clean = hexString.replace(/[^0-9a-fA-F]/g, "");
-      if (!clean || clean.length % 2 !== 0) {
-        throw new Error("HEX inválido. Use pares como A1 01 ou 0A0B");
-      }
-
-      const bytes = [];
-      for (let i = 0; i < clean.length; i += 2) {
-        bytes.push(parseInt(clean.slice(i, i + 2), 16));
-      }
-      return new Uint8Array(bytes);
-    }
-
-    function handleNotification(event) {
-      const characteristic = event.target;
-      const value = characteristic.value;
-      const time = new Date().toLocaleTimeString();
-      const hex = bytesToHex(value.buffer);
-      const ascii = bytesToAscii(value.buffer);
-
-      logData(`[${time}] NOTIFY ${characteristic.uuid}`);
-      logData(`HEX: ${hex}`);
-      if (ascii.trim()) {
-        logData(`ASCII: ${ascii}`);
-      }
-
-      const bytes = new Uint8Array(value.buffer);
-      if (bytes.length >= 2) {
-        const possibleHr = bytes[1];
-        if (possibleHr > 20 && possibleHr < 240) {
-          logData(`Possível valor útil: ${possibleHr}`);
-        }
-      }
-
-      logData("");
-    }
-
-    async function enableNotifications(characteristic) {
-      if (!(characteristic.properties.notify || characteristic.properties.indicate)) {
-        return false;
-      }
-
-      try {
-        await characteristic.startNotifications();
-        const bound = handleNotification.bind(null);
-        characteristic.addEventListener("characteristicvaluechanged", bound);
-        notifyHandlers.set(characteristic.uuid, bound);
-        return true;
+        const hr = parseHeartRate(event.target.value);
+        log(`2A37 -> FC = ${hr} bpm`);
       } catch (e) {
-        logServices(`  -> falha ao ativar notify em ${characteristic.uuid}: ${e.message}`);
-        return false;
+        log(`Erro parse FC: ${e.message}`);
       }
     }
 
-    async function readIfPossible(characteristic) {
-      if (!characteristic.properties.read) return;
-
-      try {
-        const value = await characteristic.readValue();
-        const hex = bytesToHex(value.buffer);
-        const ascii = bytesToAscii(value.buffer);
-        logServices(`    valor(hex): ${hex}`);
-        if (ascii.trim()) {
-          logServices(`    valor(ascii): ${ascii}`);
-        }
-      } catch (e) {
-        logServices(`    erro ao ler: ${e.message}`);
-      }
+    function makeNotifyHandler(name) {
+      return function(event) {
+        const hex = bytesToHex(event.target.value.buffer);
+        log(`${name} -> ${hex}`);
+      };
     }
 
-    async function connectAndScan() {
+    async function connectRing() {
       try {
-        clearLogs();
-        resetSelectors();
-        characteristicMap.clear();
-        notifyHandlers.clear();
-        writeCountEl.textContent = "0";
-        notifyCountEl.textContent = "0";
-
+        logEl.textContent = "";
         setStatus("Solicitando dispositivo...");
 
         device = await navigator.bluetooth.requestDevice({
           acceptAllDevices: true,
-          optionalServices: OPTIONAL_SERVICES
+          optionalServices: [
+            "heart_rate",
+            "6e400001-b5a3-f393-e0a9-e50e24dcca9e",
+            "be940000-7333-be46-b7ae-689e71722bd5",
+            "0000ae00-0000-1000-8000-00805f9b34fb"
+          ]
         });
 
         deviceNameEl.textContent = device.name || "Sem nome";
-        device.addEventListener("gattserverdisconnected", onDisconnected);
+        device.addEventListener("gattserverdisconnected", () => {
+          setStatus("Desconectado");
+          log("Dispositivo desconectado");
+        });
 
-        setStatus("Conectando...");
         server = await device.gatt.connect();
+        setStatus("Conectado");
+        log("Conectado com sucesso");
 
-        setStatus("Conectado. Varredura em andamento...");
-
-        const services = await server.getPrimaryServices();
-
-        let writeCount = 0;
-        let notifyCount = 0;
-
-        logServices(`Total de serviços: ${services.length}`);
-        logServices("");
-
-        for (const service of services) {
-          const serviceUuid = normalizeUuid(service.uuid);
-          const serviceMark = isTargetUuid(serviceUuid) ? " [ALVO]" : "";
-          logServices(`SERVICE: ${serviceUuid}${serviceMark}`);
-
-          const characteristics = await service.getCharacteristics();
-
-          for (const ch of characteristics) {
-            const chUuid = normalizeUuid(ch.uuid);
-            const isTarget = isTargetUuid(chUuid);
-            const targetMark = isTarget ? " [ALVO]" : "";
-
-            characteristicMap.set(chUuid, ch);
-
-            logServices(`  CHARACTERISTIC: ${chUuid}${targetMark}`);
-            logServices(`    read=${ch.properties.read}`);
-            logServices(`    write=${ch.properties.write}`);
-            logServices(`    writeWithoutResponse=${ch.properties.writeWithoutResponse}`);
-            logServices(`    notify=${ch.properties.notify}`);
-            logServices(`    indicate=${ch.properties.indicate}`);
-
-            await readIfPossible(ch);
-
-            if (ch.properties.write || ch.properties.writeWithoutResponse) {
-              writeCount++;
-              addOption(
-                writeCharSelect,
-                chUuid,
-                `${chUuid} ${isTarget ? "[ALVO]" : ""}`
-              );
-            }
-
-            if (ch.properties.notify || ch.properties.indicate) {
-              notifyCount++;
-              addOption(
-                notifyCharSelect,
-                chUuid,
-                `${chUuid} ${isTarget ? "[ALVO]" : ""}`
-              );
-              await enableNotifications(ch);
-              logServices(`    notify ativado`);
-            }
-
-            logServices("");
-          }
+        // Heart rate
+        try {
+          const hrService = await server.getPrimaryService("heart_rate");
+          hrNotify = await hrService.getCharacteristic("heart_rate_measurement");
+          await hrNotify.startNotifications();
+          hrNotify.addEventListener("characteristicvaluechanged", handleHR);
+          log("Notify de FC ativado em 2A37");
+        } catch (e) {
+          log("FC padrão não disponível: " + e.message);
         }
 
-        writeCountEl.textContent = String(writeCount);
-        notifyCountEl.textContent = String(notifyCount);
-        setStatus("Conectado e varrido");
-        logData("Varredura concluída.");
-        logData("Agora você pode testar comandos HEX nas characteristics de escrita.");
+        // UART 6e40
+        try {
+          const s = await server.getPrimaryService("6e400001-b5a3-f393-e0a9-e50e24dcca9e");
+          uartWrite = await s.getCharacteristic("6e400002-b5a3-f393-e0a9-e50e24dcca9e");
+          uartNotify = await s.getCharacteristic("6e400003-b5a3-f393-e0a9-e50e24dcca9e");
+          await uartNotify.startNotifications();
+          uartNotify.addEventListener("characteristicvaluechanged", makeNotifyHandler("6e400003"));
+          log("Canal UART 6e40 pronto");
+        } catch (e) {
+          log("6e40 indisponível: " + e.message);
+        }
+
+        // BE94
+        try {
+          const s = await server.getPrimaryService("be940000-7333-be46-b7ae-689e71722bd5");
+          beWrite = await s.getCharacteristic("be940001-7333-be46-b7ae-689e71722bd5");
+          beNotify = await s.getCharacteristic("be940003-7333-be46-b7ae-689e71722bd5");
+          await beNotify.startNotifications();
+          beNotify.addEventListener("characteristicvaluechanged", makeNotifyHandler("be940003"));
+          log("Canal BE94 pronto");
+        } catch (e) {
+          log("BE94 indisponível: " + e.message);
+        }
+
+        // AE00
+        try {
+          const s = await server.getPrimaryService("0000ae00-0000-1000-8000-00805f9b34fb");
+          aeWrite = await s.getCharacteristic("0000ae01-0000-1000-8000-00805f9b34fb");
+          aeNotify = await s.getCharacteristic("0000ae02-0000-1000-8000-00805f9b34fb");
+          await aeNotify.startNotifications();
+          aeNotify.addEventListener("characteristicvaluechanged", makeNotifyHandler("ae02"));
+          log("Canal AE00 pronto");
+        } catch (e) {
+          log("AE00 indisponível: " + e.message);
+        }
+
+        log("Pronto para testar comandos");
       } catch (e) {
         setStatus("Erro");
-        logData(`Erro: ${e.message}`);
-        console.error(e);
+        log("Erro: " + e.message);
       }
     }
 
-    async function sendHexCommand() {
-      try {
-        const selectedUuid = writeCharSelect.value;
-        if (!selectedUuid) {
-          alert("Selecione uma characteristic de escrita.");
-          return;
-        }
+    async function sendToCandidates(hex) {
+      const bytes = hexToBytes(hex);
+      const sent = [];
 
-        const characteristic = characteristicMap.get(selectedUuid);
-        if (!characteristic) {
-          alert("Characteristic não encontrada.");
-          return;
-        }
-
-        const bytes = hexStringToUint8Array(hexInput.value);
-        const time = new Date().toLocaleTimeString();
-
-        logData(`[${time}] Enviando para ${selectedUuid}`);
-        logData(`HEX: ${bytesToHex(bytes.buffer)}`);
-
-        if (characteristic.properties.writeWithoutResponse) {
-          await characteristic.writeValueWithoutResponse(bytes);
-          logData("Envio feito com writeWithoutResponse()");
-        } else if (characteristic.properties.write) {
-          await characteristic.writeValueWithResponse(bytes);
-          logData("Envio feito com writeValueWithResponse()");
-        } else {
-          logData("Essa characteristic não aceita escrita.");
-        }
-
-        logData("");
-      } catch (e) {
-        logData(`Erro ao enviar comando: ${e.message}`);
-        logData("");
-        console.error(e);
-      }
-    }
-
-    async function disconnectDevice() {
-      try {
-        if (!device) return;
-
-        for (const [uuid, handler] of notifyHandlers.entries()) {
-          const ch = characteristicMap.get(uuid);
-          if (ch) {
-            try {
-              ch.removeEventListener("characteristicvaluechanged", handler);
-            } catch {}
+      if (uartWrite) {
+        try {
+          if (uartWrite.properties.writeWithoutResponse) {
+            await uartWrite.writeValueWithoutResponse(bytes);
+          } else {
+            await uartWrite.writeValueWithResponse(bytes);
           }
+          sent.push("6e400002");
+        } catch (e) {
+          log("Falha 6e400002: " + e.message);
         }
-
-        if (device.gatt && device.gatt.connected) {
-          device.gatt.disconnect();
-        }
-
-        setStatus("Desconectado");
-      } catch (e) {
-        logData(`Erro ao desconectar: ${e.message}`);
       }
+
+      if (beWrite) {
+        try {
+          if (beWrite.properties.writeWithoutResponse) {
+            await beWrite.writeValueWithoutResponse(bytes);
+          } else if (beWrite.properties.write) {
+            await beWrite.writeValueWithResponse(bytes);
+          }
+          sent.push("be940001");
+        } catch (e) {
+          log("Falha be940001: " + e.message);
+        }
+      }
+
+      if (aeWrite) {
+        try {
+          if (aeWrite.properties.writeWithoutResponse) {
+            await aeWrite.writeValueWithoutResponse(bytes);
+          } else if (aeWrite.properties.write) {
+            await aeWrite.writeValueWithResponse(bytes);
+          }
+          sent.push("ae01");
+        } catch (e) {
+          log("Falha ae01: " + e.message);
+        }
+      }
+
+      log(`Comando ${hex} enviado para: ${sent.join(", ") || "nenhum canal"}`);
     }
 
-    function onDisconnected() {
+    function disconnectRing() {
+      if (device && device.gatt && device.gatt.connected) {
+        device.gatt.disconnect();
+      }
       setStatus("Desconectado");
-      logData("Dispositivo desconectado.");
     }
 
-    function fillTargetsLog() {
-      targetsLogEl.textContent =
-`UUIDs alvo do SmartHealth:
+    document.getElementById("connectBtn").addEventListener("click", connectRing);
+    document.getElementById("disconnectBtn").addEventListener("click", disconnectRing);
 
-be940000-7333-be46-b7ae-689e71722bd5
-be940001-7333-be46-b7ae-689e71722bd5
-be940002-7333-be46-b7ae-689e71722bd5
-be940003-7333-be46-b7ae-689e71722bd5
+    document.getElementById("test01").addEventListener("click", () => sendToCandidates("01"));
+    document.getElementById("test0101").addEventListener("click", () => sendToCandidates("01 01"));
+    document.getElementById("testA101").addEventListener("click", () => sendToCandidates("A1 01"));
+    document.getElementById("testA201").addEventListener("click", () => sendToCandidates("A2 01"));
+    document.getElementById("testStop").addEventListener("click", () => sendToCandidates("00"));
 
-6e400001-b5a3-f393-e0a9-e50e24dcca9e
-6e400002-b5a3-f393-e0a9-e50e24dcca9e
-6e400003-b5a3-f393-e0a9-e50e24dcca9e
-
-0000ae00-0000-1000-8000-00805f9b34fb
-0000ae01-0000-1000-8000-00805f9b34fb
-0000ae02-0000-1000-8000-00805f9b34fb
-
-0000fe59-0000-1000-8000-00805f9b34fb
-
-Padrão já visto no anel:
-180D / 2A37 / 2A38`;
-    }
-
-    document.getElementById("connectBtn").addEventListener("click", connectAndScan);
-    document.getElementById("disconnectBtn").addEventListener("click", disconnectDevice);
-    document.getElementById("sendBtn").addEventListener("click", sendHexCommand);
-    document.getElementById("clearBtn").addEventListener("click", clearLogs);
-
-    fillTargetsLog();
+    document.getElementById("sendManualBtn").addEventListener("click", () => {
+      const hex = document.getElementById("hexInput").value.trim();
+      if (!hex) return;
+      sendToCandidates(hex);
+    });
   </script>
 </body>
 </html>
