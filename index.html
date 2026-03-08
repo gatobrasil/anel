@@ -1,892 +1,146 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>SmartHealth R99</title>
-<style>
-*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-:root{
-  --bg:#060b14;--card:#0d1520;--card2:#111c2e;--border:#182438;
-  --green:#00e676;--red:#ff4d6d;--blue:#29b6f6;--yellow:#ffd600;--purple:#ce93d8;
-  --text:#ddeeff;--dim:#3a5570;--mono:'Courier New',monospace;
-}
-body{font-family:var(--mono);background:var(--bg);color:var(--text);min-height:100vh;max-width:460px;margin:0 auto;}
-
-/* HEADER */
-.hdr{
-  padding:36px 18px 18px;
-  background:linear-gradient(180deg,rgba(41,182,246,0.08),transparent);
-  border-bottom:1px solid var(--border);
-}
-.hdr-row{display:flex;align-items:center;justify-content:space-between;}
-.app-title{font-size:20px;letter-spacing:3px;color:var(--blue);}
-.app-sub{font-size:10px;color:var(--dim);margin-top:3px;letter-spacing:1px;}
-
-#btn-connect{
-  background:rgba(41,182,246,0.15);
-  border:1px solid rgba(41,182,246,0.4);
-  color:var(--blue);
-  padding:10px 16px;border-radius:8px;
-  font-family:var(--mono);font-size:12px;font-weight:700;
-  cursor:pointer;letter-spacing:1px;transition:all .2s;
-}
-#btn-connect:hover{background:rgba(41,182,246,0.25);}
-#btn-connect.on{background:rgba(0,230,118,0.12);border-color:rgba(0,230,118,0.4);color:var(--green);}
-
-/* STATUS */
-.status-row{
-  display:flex;align-items:center;gap:8px;
-  padding:8px 18px;
-  background:var(--card);border-bottom:1px solid var(--border);
-  font-size:11px;letter-spacing:1px;
-}
-.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
-.dot.off{background:var(--red);}
-.dot.on{background:var(--green);box-shadow:0 0 8px var(--green);}
-.dot.busy{background:var(--yellow);animation:pulse .7s infinite;}
-@keyframes pulse{50%{opacity:.2}}
-
-/* CONTENT */
-.content{padding:14px;}
-
-/* ── METRIC CARD ── */
-.mcard{
-  background:var(--card);border:1px solid var(--border);
-  border-radius:14px;padding:16px;margin-bottom:12px;
-  position:relative;overflow:hidden;
-}
-.mcard-glow{
-  position:absolute;top:-40px;right:-40px;
-  width:100px;height:100px;border-radius:50%;
-  filter:blur(30px);opacity:.12;pointer-events:none;
-}
-.mcard-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
-.mcard-title{font-size:10px;letter-spacing:2px;color:var(--dim);}
-.mcard-badge{font-size:10px;padding:3px 10px;border-radius:100px;font-weight:700;}
-
-.big-val{
-  font-size:64px;font-weight:700;line-height:1;letter-spacing:-2px;
-  font-family:var(--mono);
-}
-.big-unit{font-size:14px;color:var(--dim);margin-top:4px;letter-spacing:1px;}
-
-/* ECG */
-.ecg{height:50px;margin:10px 0;}
-.ecg svg{width:100%;height:50px;}
-
-/* MEASURE BTN */
-.meas-btn{
-  width:100%;padding:13px;margin-top:6px;
-  background:transparent;
-  border:1px solid var(--border);border-radius:10px;
-  color:var(--dim);font-family:var(--mono);font-size:12px;
-  font-weight:700;letter-spacing:2px;cursor:pointer;transition:all .2s;
-}
-.meas-btn:hover:not(:disabled){border-color:var(--blue);color:var(--blue);}
-.meas-btn:disabled{opacity:.3;cursor:not-allowed;}
-.meas-btn.active{color:var(--yellow);border-color:rgba(255,214,0,.4);animation:btn-pulse 1s infinite;}
-@keyframes btn-pulse{50%{box-shadow:0 0 12px rgba(255,214,0,.2);}}
-.meas-btn.done{color:var(--green);border-color:rgba(0,230,118,.4);}
-
-/* 2 COL */
-.two{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-
-/* LOG */
-.log-wrap{
-  background:var(--card);border:1px solid var(--border);
-  border-radius:14px;overflow:hidden;margin-bottom:12px;
-}
-.log-hdr{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:10px 14px;border-bottom:1px solid var(--border);
-}
-.log-hdr-title{font-size:10px;letter-spacing:2px;color:var(--blue);}
-.log-clear{background:none;border:none;color:var(--dim);font-size:10px;font-family:var(--mono);cursor:pointer;}
-.log-clear:hover{color:var(--red);}
-#log{height:200px;overflow-y:auto;padding:10px 14px;font-size:10px;line-height:1.9;}
-#log::-webkit-scrollbar{width:3px;}
-#log::-webkit-scrollbar-thumb{background:var(--border);}
-.le{display:flex;gap:8px;}
-.lt{color:var(--dim);flex-shrink:0;font-size:9px;}
-.lm{word-break:break-all;}
-.ok{color:var(--green)}.err{color:var(--red)}.info{color:var(--blue)}.data{color:var(--purple)}.warn{color:var(--yellow)}.dim{color:var(--dim)}
-
-/* RAW */
-.raw-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:12px;}
-.raw-title{font-size:10px;letter-spacing:2px;color:var(--dim);margin-bottom:10px;}
-.raw-row{display:flex;gap:8px;}
-.raw-in{
-  flex:1;background:var(--bg);border:1px solid var(--border);
-  color:var(--text);border-radius:8px;padding:10px;
-  font-family:var(--mono);font-size:12px;letter-spacing:1px;
-  text-transform:uppercase;outline:none;
-}
-.raw-in:focus{border-color:var(--blue);}
-.raw-in::placeholder{text-transform:none;letter-spacing:0;color:var(--dim);}
-.raw-send{
-  background:rgba(41,182,246,.15);border:1px solid rgba(41,182,246,.4);
-  color:var(--blue);border-radius:8px;padding:10px 14px;
-  font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;
-}
-.raw-send:disabled{opacity:.3;cursor:not-allowed;}
-
-/* PRESETS */
-.presets{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
-.pb{
-  background:var(--card2);border:1px solid var(--border);
-  color:var(--dim);border-radius:6px;padding:6px 10px;
-  font-family:var(--mono);font-size:10px;cursor:pointer;transition:all .15s;
-}
-.pb:hover:not(:disabled){border-color:var(--blue);color:var(--blue);}
-.pb:disabled{opacity:.3;cursor:not-allowed;}
-.pb.hit{border-color:var(--green);color:var(--green);}
-
-/* ALERT */
-.alert{border-radius:10px;padding:12px 14px;font-size:11px;line-height:1.7;margin-bottom:12px;}
-.alert-warn{background:rgba(255,214,0,.08);border:1px solid rgba(255,214,0,.25);color:var(--yellow);}
-.alert-ok{background:rgba(0,230,118,.08);border:1px solid rgba(0,230,118,.25);color:var(--green);}
-.alert-info{background:rgba(41,182,246,.08);border:1px solid rgba(41,182,246,.25);color:var(--blue);}
-
-/* FADE IN */
-@keyframes fi{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-.content>*{animation:fi .35s ease both;}
-.content>*:nth-child(1){animation-delay:.05s}
-.content>*:nth-child(2){animation-delay:.10s}
-.content>*:nth-child(3){animation-delay:.15s}
-.content>*:nth-child(4){animation-delay:.20s}
-.content>*:nth-child(5){animation-delay:.25s}
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Teste mínimo do anel</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; background: #f4f7fb; }
+    button { padding: 12px 16px; margin: 6px 6px 0 0; border: none; border-radius: 10px; cursor: pointer; }
+    .blue { background: #2563eb; color: white; }
+    .green { background: #059669; color: white; }
+    .red { background: #dc2626; color: white; }
+    pre { background: #111827; color: #10b981; padding: 14px; border-radius: 12px; min-height: 220px; white-space: pre-wrap; }
+  </style>
 </head>
 <body>
+  <h2>Teste mínimo do anel</h2>
+  <button class="blue" id="connectBtn">Conectar</button>
+  <button class="green" id="cmd1Btn">Enviar 01</button>
+  <button class="green" id="cmd2Btn">Enviar 01 01</button>
+  <button class="red" id="disconnectBtn">Desconectar</button>
 
-<div class="hdr">
-  <div class="hdr-row">
-    <div>
-      <div class="app-title">SMARTHEALTH</div>
-      <div class="app-sub">R99 62E6 · BLE REAL</div>
-    </div>
-    <button id="btn-connect" onclick="toggleConnect()">CONECTAR</button>
-  </div>
-</div>
+  <p><strong>Status:</strong> <span id="status">Desconectado</span></p>
+  <pre id="log"></pre>
 
-<div class="status-row">
-  <div class="dot off" id="dot"></div>
-  <span id="status-txt">Aguardando conexão…</span>
-</div>
+  <script>
+    let device = null;
+    let server = null;
+    let beWrite = null;
+    let beNotify = null;
+    let hrChar = null;
 
-<div class="content">
+    const statusEl = document.getElementById("status");
+    const logEl = document.getElementById("log");
 
-  <!-- ALERT -->
-  <div class="alert alert-info" id="alert-main">
-    ⚡ Conecte o anel R99. O sensor <b>precisa de um comando</b> para ativar — isso é feito automaticamente ao clicar em Medir.
-  </div>
+    function log(msg) {
+      const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
+      logEl.textContent += line + "\n";
+      logEl.scrollTop = logEl.scrollHeight;
+      console.log(line);
+    }
 
-  <!-- FC + SPO2 -->
-  <div class="two">
+    function setStatus(msg) {
+      statusEl.textContent = msg;
+    }
 
-    <!-- HEART RATE -->
-    <div class="mcard">
-      <div class="mcard-glow" style="background:var(--red)"></div>
-      <div class="mcard-hdr">
-        <span class="mcard-title">FREQ. CARDÍACA</span>
-        <span class="mcard-badge" id="hr-badge" style="background:rgba(255,77,109,.12);color:var(--red)">❤</span>
-      </div>
-      <div class="big-val" id="hr-val" style="color:var(--red)">--</div>
-      <div class="big-unit">bpm</div>
-      <div class="ecg">
-        <svg viewBox="0 0 200 50" preserveAspectRatio="none">
-          <polyline id="ecg-line" fill="none" stroke="var(--red)" stroke-width="1.5"
-            stroke-linejoin="round" points="0,25 200,25"/>
-        </svg>
-      </div>
-      <button class="meas-btn" id="btn-hr" onclick="toggleHR()" disabled>▶ MEDIR FC</button>
-    </div>
-
-    <!-- SPO2 -->
-    <div class="mcard">
-      <div class="mcard-glow" style="background:var(--blue)"></div>
-      <div class="mcard-hdr">
-        <span class="mcard-title">SPO₂</span>
-        <span class="mcard-badge" id="spo2-badge" style="background:rgba(41,182,246,.12);color:var(--blue)">🫁</span>
-      </div>
-      <div class="big-val" id="spo2-val" style="color:var(--blue)">--</div>
-      <div class="big-unit">%</div>
-      <div class="ecg">
-        <svg viewBox="0 0 200 50" preserveAspectRatio="none">
-          <polyline id="spo2-line" fill="none" stroke="var(--blue)" stroke-width="1.5"
-            stroke-linejoin="round" points="0,25 200,25"/>
-        </svg>
-      </div>
-      <button class="meas-btn" id="btn-spo2" onclick="toggleSpO2()" disabled>▶ MEDIR SPO₂</button>
-    </div>
-
-  </div>
-
-  <!-- STEPS + BATTERY -->
-  <div class="two">
-    <div class="mcard">
-      <div class="mcard-glow" style="background:var(--green)"></div>
-      <div class="mcard-hdr"><span class="mcard-title">PASSOS</span></div>
-      <div class="big-val" id="steps-val" style="color:var(--green);font-size:36px">--</div>
-      <div class="big-unit">hoje</div>
-      <button class="meas-btn" id="btn-steps" onclick="getSteps()" disabled>↓ SYNC</button>
-    </div>
-    <div class="mcard">
-      <div class="mcard-glow" style="background:var(--yellow)"></div>
-      <div class="mcard-hdr"><span class="mcard-title">BATERIA</span></div>
-      <div class="big-val" id="bat-val" style="color:var(--yellow);font-size:36px">--</div>
-      <div class="big-unit">%</div>
-      <button class="meas-btn" id="btn-bat" onclick="getBattery()" disabled>↓ LER</button>
-    </div>
-  </div>
-
-  <!-- RAW COMMAND -->
-  <div class="raw-card">
-    <div class="raw-title">// COMANDO DIRETO → be940001</div>
-    <div class="raw-row">
-      <input class="raw-in" id="raw-in" placeholder="ex: AA 17 00 BD">
-      <button class="raw-send" id="raw-send" onclick="sendRaw()" disabled>SEND</button>
-    </div>
-    <div class="presets" id="presets"></div>
-  </div>
-
-  <!-- LOG -->
-  <div class="log-wrap">
-    <div class="log-hdr">
-      <span class="log-hdr-title">// LOG BLE</span>
-      <button class="log-clear" onclick="clearLog()">LIMPAR</button>
-    </div>
-    <div id="log"></div>
-  </div>
-
-</div><!-- /content -->
-
-<script>
-// ──────────────────────────────────────────────
-// PROTOCOL — descoberto pelo diagnóstico
-// ──────────────────────────────────────────────
-// Device:     R99 62E6
-// Write:      be940001 (write + writeWithoutResponse + indicate)
-// Indicate:   be940001 (same char!) + be940003
-// Notify HR:  00002a37 (standard) → 04 00 = idle, 04 XX = measuring
-// Also write: ae01, UART 6e400002
-
-// COMMAND STRATEGY — baseado em firmwares R99/white-label:
-// O anel usa be940001 para RECEBER comandos E devolver respostas (indicate).
-// Quando 2A37 retorna "04 00" o sensor está ocioso.
-// Precisamos enviar um "wake/start" via be940001.
-
-const CMDS = {
-  // Formato mais comum neste firmware: AA [cmd] [len] [...data] [checksum]
-  // checksum = XOR ou soma de todos os bytes anteriores & 0xFF
-  HR_START:   [0xAA, 0x11, 0x01, 0x01, 0xBB],   // start HR — variante 1
-  HR_START2:  [0xAA, 0x17, 0x01, 0x01, 0xBE],   // start HR — variante 2
-  HR_START3:  [0xAA, 0x15, 0x01, 0x01, 0xBC],   // start HR — variante 3
-  HR_START4:  [0x01, 0x02, 0x01, 0x00],          // short cmd
-  HR_START5:  [0xAB, 0x00, 0x04, 0xFF, 0x31, 0x09, 0x01, 0xCB], // FitCloud
-  HR_STOP:    [0xAA, 0x11, 0x01, 0x00, 0xBA],
-  HR_STOP2:   [0xAA, 0x17, 0x01, 0x00, 0xBD],
-  SPO2_START: [0xAA, 0x12, 0x01, 0x01, 0xBC],
-  SPO2_START2:[0xAA, 0x22, 0x01, 0x01, 0xCC],
-  SPO2_START3:[0xAB, 0x00, 0x04, 0xFF, 0x31, 0x09, 0x02, 0xCA],
-  SPO2_STOP:  [0xAA, 0x12, 0x01, 0x00, 0xBB],
-  STEPS:      [0xAA, 0x33, 0x00, 0x99],
-  STEPS2:     [0xAA, 0x06, 0x00, 0xAC],
-  STEPS3:     [0xAB, 0x00, 0x04, 0xFF, 0x91, 0x00, 0x00, 0x0A],
-  BATTERY:    [0xAA, 0x03, 0x00, 0xA9],
-  BATTERY2:   [0xAB, 0x00, 0x04, 0xFF, 0x91, 0x08, 0x00, 0x02],
-  INFO:       [0xAA, 0x02, 0x00, 0xA8],
-  WAKE:       [0xAA, 0x01, 0x00, 0xAB],
-  PING:       [0xFF, 0x00],
-};
-
-const PRESET_LIST = [
-  {name:'HR Start v1',  key:'HR_START'},
-  {name:'HR Start v2',  key:'HR_START2'},
-  {name:'HR Start v3',  key:'HR_START3'},
-  {name:'HR Short',     key:'HR_START4'},
-  {name:'HR FitCloud',  key:'HR_START5'},
-  {name:'HR Stop',      key:'HR_STOP'},
-  {name:'SpO₂ Start',   key:'SPO2_START'},
-  {name:'SpO₂ v2',      key:'SPO2_START2'},
-  {name:'SpO₂ FC',      key:'SPO2_START3'},
-  {name:'SpO₂ Stop',    key:'SPO2_STOP'},
-  {name:'Passos',       key:'STEPS'},
-  {name:'Passos v2',    key:'STEPS2'},
-  {name:'Passos FC',    key:'STEPS3'},
-  {name:'Bateria',      key:'BATTERY'},
-  {name:'Bateria v2',   key:'BATTERY2'},
-  {name:'Info',         key:'INFO'},
-  {name:'Wake',         key:'WAKE'},
-  {name:'Ping',         key:'PING'},
-];
-
-// ──────────────────────────────────────────────
-// STATE
-// ──────────────────────────────────────────────
-const S = {
-  device: null, server: null,
-  // Write channels
-  ch_be940001: null,
-  ch_be940002: null,
-  ch_ae01: null,
-  ch_uart_tx: null,
-  // Read/Notify
-  ch_hr: null,       // 2A37
-  // Data
-  hrHistory: [],
-  spo2History: [],
-  measuringHR: false,
-  measuringSPO2: false,
-  hrTimeout: null,
-  spo2Timeout: null,
-  // Stats
-  lastHR: 0,
-  lastSPO2: 0,
-  // Response tracking
-  hitCmds: new Set(),
-};
-
-// ──────────────────────────────────────────────
-// CONNECT / DISCONNECT
-// ──────────────────────────────────────────────
-async function toggleConnect() {
-  if(S.device && S.device.gatt.connected){ S.device.gatt.disconnect(); return; }
-
-  if(!navigator.bluetooth){
-    setStatus('off','WebBluetooth não suportado. Use Chrome/Edge em HTTPS.');
-    log('❌ WebBluetooth indisponível','err'); return;
-  }
-
-  setStatus('busy','Abrindo seletor BLE…');
-  log('Conectando…','info');
-
-  try {
-    S.device = await navigator.bluetooth.requestDevice({
-      acceptAllDevices: true,
-      optionalServices:[
-        0x180D, 0x180F, 0x1800, 0x1801,
-        '6e400001-b5a3-f393-e0a9-e50e24dcca9e',
-        'be940000-7333-be46-b7ae-689e71722bd5',
-        '0000ae00-0000-1000-8000-00805f9b34fb',
-      ]
-    });
-
-    log(`✔ Dispositivo: ${S.device.name||'R99'}`, 'ok');
-    setStatus('busy',`Conectando a ${S.device.name||S.device.id}…`);
-    S.device.addEventListener('gattserverdisconnected', onDisconnect);
-    S.server = await S.device.gatt.connect();
-    log('✔ GATT conectado','ok');
-
-    await discoverAll();
-
-    setStatus('on', `${S.device.name||'R99'} · Conectado`);
-    document.getElementById('btn-connect').textContent = 'DESCONECTAR';
-    document.getElementById('btn-connect').classList.add('on');
-    enableButtons();
-
-    // Auto-wake: send a few probe commands to activate the ring
-    log('Enviando wake-up ao anel…','info');
-    await write([0xAA,0x01,0x00,0xAB]);
-    await sleep(300);
-    await write([0xAA,0x02,0x00,0xA8]);
-
-  } catch(e) {
-    if(e.name==='NotFoundError'){ log('Seletor cancelado','warn'); setStatus('off','Cancelado.'); }
-    else { log(`❌ ${e.message}`,'err'); setStatus('off','Erro de conexão.'); }
-  }
-}
-
-async function discoverAll() {
-  log('Descobrindo serviços…','info');
-  const svcs = await S.server.getPrimaryServices();
-  log(`${svcs.length} serviços encontrados`,'ok');
-
-  for(const svc of svcs){
-    let chars;
-    try{ chars = await svc.getCharacteristics(); } catch(e){ continue; }
-    for(const ch of chars){
-      const u = ch.uuid;
-      const p = ch.properties;
-      log(`  char ${u.substr(0,8)}… [${propsStr(p)}]`,'dim');
-
-      // Map known chars
-      if(u.includes('2a37')){ S.ch_hr = ch; }
-      if(u.includes('be940001')){ S.ch_be940001 = ch; }
-      if(u.includes('be940002')){ S.ch_be940002 = ch; }
-      if(u.includes('ae01')){ S.ch_ae01 = ch; }
-      if(u.includes('6e400002')){ S.ch_uart_tx = ch; }
-
-      // Subscribe to everything that notifies/indicates
-      if(p.notify || p.indicate){
-        try{
-          ch.addEventListener('characteristicvaluechanged', (e) => onData(e, u));
-          await ch.startNotifications();
-          log(`  ✔ subscrito ${u.substr(0,8)}…`,'ok');
-        } catch(e){ log(`  ✗ subscribe falhou: ${e.message}`,'warn'); }
+    function hexToBytes(hex) {
+      const clean = hex.replace(/[^0-9a-fA-F]/g, "");
+      if (!clean || clean.length % 2 !== 0) throw new Error("HEX inválido");
+      const arr = [];
+      for (let i = 0; i < clean.length; i += 2) {
+        arr.push(parseInt(clean.slice(i, i + 2), 16));
       }
+      return new Uint8Array(arr);
+    }
 
-      // Read readable ones
-      if(p.read){
-        try{
-          const v = await ch.readValue();
-          const h = hex(v);
-          log(`  READ ${u.substr(0,8)}… = ${h}`,'dim');
-          // Parse device name
-          if(u.includes('2a00')){
-            const name = textDecode(v);
-            if(name) log(`  Device name: "${name}"`,'ok');
-          }
-        } catch(e){}
+    function bytesToHex(buffer) {
+      return [...new Uint8Array(buffer)].map(b => b.toString(16).padStart(2, "0")).join(" ");
+    }
+
+    function parseHeartRate(dataView) {
+      const flags = dataView.getUint8(0);
+      const is16Bit = flags & 0x01;
+      return is16Bit ? dataView.getUint16(1, true) : dataView.getUint8(1);
+    }
+
+    async function connectRing() {
+      try {
+        logEl.textContent = "";
+        device = await navigator.bluetooth.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: [
+            "heart_rate",
+            "be940000-7333-be46-b7ae-689e71722bd5"
+          ]
+        });
+
+        device.addEventListener("gattserverdisconnected", () => {
+          setStatus("Desconectado");
+          log("Dispositivo desconectado");
+        });
+
+        setStatus("Conectando...");
+        server = await device.gatt.connect();
+
+        const hrService = await server.getPrimaryService("heart_rate");
+        hrChar = await hrService.getCharacteristic("heart_rate_measurement");
+        await hrChar.startNotifications();
+        hrChar.addEventListener("characteristicvaluechanged", (event) => {
+          const hex = bytesToHex(event.target.value.buffer);
+          const hr = parseHeartRate(event.target.value);
+          log(`2A37 -> HEX ${hex} -> FC ${hr} bpm`);
+        });
+
+        const beService = await server.getPrimaryService("be940000-7333-be46-b7ae-689e71722bd5");
+        beWrite = await beService.getCharacteristic("be940001-7333-be46-b7ae-689e71722bd5");
+        beNotify = await beService.getCharacteristic("be940003-7333-be46-b7ae-689e71722bd5");
+
+        await beNotify.startNotifications();
+        beNotify.addEventListener("characteristicvaluechanged", (event) => {
+          const hex = bytesToHex(event.target.value.buffer);
+          log(`BE940003 -> ${hex}`);
+        });
+
+        setStatus("Conectado");
+        log("Conectado e pronto");
+        log("Espere 3 segundos antes de enviar o comando");
+      } catch (e) {
+        setStatus("Erro");
+        log("Erro: " + e.message);
       }
     }
-  }
-  log('Descoberta completa','ok');
-}
 
-function onDisconnect(){
-  log('⚠ Desconectado','warn');
-  setStatus('off','Desconectado.');
-  document.getElementById('btn-connect').textContent='CONECTAR';
-  document.getElementById('btn-connect').classList.remove('on');
-  clearMeasuring();
-  disableButtons();
-  S.ch_be940001=S.ch_be940002=S.ch_ae01=S.ch_uart_tx=S.ch_hr=null;
-}
+    async function sendCommand(hex) {
+      try {
+        if (!beWrite) {
+          log("Conecte primeiro");
+          return;
+        }
 
-// ──────────────────────────────────────────────
-// DATA RECEIVED — parse ALL incoming bytes
-// ──────────────────────────────────────────────
-function onData(evt, uuid){
-  const dv = evt.target.value;
-  const bytes = dvToArr(dv);
-  const h = hexStr(bytes);
-  log(`📥 [${uuid.substr(0,8)}] ${h}`, 'data');
-
-  // ── 2A37 Heart Rate standard ──
-  // "04 00" = sensor idle (flag=0x04 means contact, HR=0)
-  // "04 XX" = sensor measuring, XX = bpm (when > 0)
-  // "06 XX" = energy expended included
-  if(uuid.includes('2a37')){
-    const flags = bytes[0];
-    const hr = (flags & 0x01) ? ((bytes[2]<<8)|bytes[1]) : bytes[1];
-    if(hr > 0){
-      log(`✅ FC = ${hr} bpm`, 'ok');
-      setHR(hr);
-    } else {
-      // Still "04 00" — sensor idle, try to activate
-      if(S.measuringHR){
-        log('Sensor ocioso (04 00). Tentando ativar…','warn');
-        activateHR_sequence();
+        const bytes = hexToBytes(hex);
+        if (beWrite.properties.writeWithoutResponse) {
+          await beWrite.writeValueWithoutResponse(bytes);
+        } else {
+          await beWrite.writeValueWithResponse(bytes);
+        }
+        log(`Comando enviado em BE940001: ${hex}`);
+      } catch (e) {
+        log("Erro ao enviar: " + e.message);
       }
     }
-    return;
-  }
 
-  // ── Proprietário be940001 / be940003 / UART RX / AE02 ──
-  parseProprietaryResponse(bytes, uuid);
-}
-
-function parseProprietaryResponse(bytes, uuid){
-  if(bytes.length === 0) return;
-  const h = hexStr(bytes);
-
-  // R99 / white-label response patterns:
-  // AA [cmd] [status] [data…] [cs]
-
-  // HR result
-  if(bytes[0]===0xAA){
-    const cmd = bytes[1];
-
-    // HR measurement result
-    if((cmd===0x11||cmd===0x15||cmd===0x17) && bytes.length>=3){
-      const hr = bytes[2];
-      if(hr>=40&&hr<=220){ log(`✅ FC proprietária = ${hr} bpm`,'ok'); setHR(hr); }
-      const spo2 = bytes[3]||0;
-      if(spo2>=70&&spo2<=100){ log(`✅ SpO₂ = ${spo2}%`,'ok'); setSpO2(spo2); }
-      return;
-    }
-    // SpO2 result
-    if(cmd===0x12||cmd===0x22){
-      const spo2 = bytes[2];
-      const hr   = bytes[3]||0;
-      if(spo2>=70&&spo2<=100){ log(`✅ SpO₂ = ${spo2}%`,'ok'); setSpO2(spo2); }
-      if(hr>=40&&hr<=220){ log(`✅ FC = ${hr} bpm`,'ok'); setHR(hr); }
-      return;
-    }
-    // Steps
-    if(cmd===0x33||cmd===0x06){
-      if(bytes.length>=5){
-        const steps=(bytes[2]<<16)|(bytes[3]<<8)|bytes[4];
-        log(`✅ Passos = ${steps}`,'ok');
-        document.getElementById('steps-val').textContent=steps.toLocaleString('pt-BR');
-        document.getElementById('btn-steps').textContent='✔ SYNC';
-        document.getElementById('btn-steps').classList.add('done');
+    function disconnectRing() {
+      if (device && device.gatt && device.gatt.connected) {
+        device.gatt.disconnect();
       }
-      return;
-    }
-    // Battery
-    if(cmd===0x03){
-      const bat=bytes[2];
-      if(bat>=0&&bat<=100){ log(`✅ Bateria = ${bat}%`,'ok'); setBattery(bat); }
-      return;
-    }
-    // Device info / version
-    if(cmd===0x02){
-      log(`ℹ Device info: ${h}`,'info');
-      return;
-    }
-    log(`Resposta AA ${cmd.toString(16).toUpperCase()}: ${h}`,'info');
-    return;
-  }
-
-  // FitCloud / HBand style: AB 00 [len] [type] [data…]
-  if(bytes[0]===0xAB && bytes.length>=4){
-    const type = bytes[3];
-    // HR type 0x31
-    if(type===0x31){
-      const hr = bytes[5]||bytes[4];
-      const spo2 = bytes[6]||0;
-      if(hr>=40&&hr<=220){ log(`✅ FC FitCloud = ${hr} bpm`,'ok'); setHR(hr); }
-      if(spo2>=70&&spo2<=100){ log(`✅ SpO₂ FitCloud = ${spo2}%`,'ok'); setSpO2(spo2); }
-      return;
-    }
-    log(`Resposta AB type=0x${type.toString(16).toUpperCase()}: ${h}`,'info');
-    return;
-  }
-
-  // Generic: scan for plausible HR byte
-  for(let i=0;i<bytes.length;i++){
-    if(bytes[i]>=50&&bytes[i]<=180 && S.measuringHR){
-      log(`Possível FC byte[${i}]=${bytes[i]} em: ${h}`,'warn');
-    }
-  }
-
-  log(`Dados brutos: ${h}`,'dim');
-}
-
-// ──────────────────────────────────────────────
-// HR ACTIVATION SEQUENCE
-// The ring sends "04 00" when idle on 2A37.
-// We need to send start commands on be940001
-// trying all known variants.
-// ──────────────────────────────────────────────
-let _activationStep = 0;
-const HR_ACTIVATION_VARIANTS = [
-  CMDS.HR_START,   // AA 11 01 01 BB
-  CMDS.HR_START2,  // AA 17 01 01 BE
-  CMDS.HR_START3,  // AA 15 01 01 BC
-  CMDS.HR_START4,  // 01 02 01 00
-  CMDS.HR_START5,  // FitCloud style
-];
-
-async function activateHR_sequence(){
-  if(!S.measuringHR) return;
-  const variant = HR_ACTIVATION_VARIANTS[_activationStep % HR_ACTIVATION_VARIANTS.length];
-  log(`Tentativa ativação HR #${_activationStep+1}: ${hexStr(variant)}`,'warn');
-  await writeAll(variant);
-  _activationStep++;
-}
-
-const SPO2_ACTIVATION_VARIANTS = [
-  CMDS.SPO2_START, CMDS.SPO2_START2, CMDS.SPO2_START3
-];
-let _spo2Step = 0;
-
-// ──────────────────────────────────────────────
-// MEASURE HR
-// ──────────────────────────────────────────────
-async function toggleHR(){
-  if(!S.measuringHR){
-    S.measuringHR = true;
-    _activationStep = 0;
-    setBtnMeasuring('btn-hr','PARAR FC');
-    log('━ Iniciando medição FC ━','info');
-
-    // Send all variants immediately
-    for(const cmd of HR_ACTIVATION_VARIANTS){
-      await writeAll(cmd);
-      await sleep(200);
+      setStatus("Desconectado");
     }
 
-    // Poll every 3s if still no data
-    S.hrTimeout = setInterval(()=>{
-      if(S.lastHR===0 && S.measuringHR) activateHR_sequence();
-    }, 3000);
-
-  } else {
-    clearMeasuringHR();
-    await writeAll(CMDS.HR_STOP);
-    await writeAll(CMDS.HR_STOP2);
-    log('Medição FC encerrada','info');
-  }
-}
-
-// ──────────────────────────────────────────────
-// MEASURE SPO2
-// ──────────────────────────────────────────────
-async function toggleSpO2(){
-  if(!S.measuringSPO2){
-    S.measuringSPO2 = true;
-    _spo2Step = 0;
-    setBtnMeasuring('btn-spo2','PARAR SPO₂');
-    log('━ Iniciando medição SpO₂ ━','info');
-
-    for(const cmd of SPO2_ACTIVATION_VARIANTS){
-      await writeAll(cmd);
-      await sleep(200);
-    }
-
-    S.spo2Timeout = setInterval(()=>{
-      if(S.lastSPO2===0 && S.measuringSPO2){
-        const v = SPO2_ACTIVATION_VARIANTS[_spo2Step%SPO2_ACTIVATION_VARIANTS.length];
-        writeAll(v);
-        _spo2Step++;
-      }
-    }, 3000);
-
-  } else {
-    clearMeasuringSPO2();
-    await writeAll(CMDS.SPO2_STOP);
-    log('Medição SpO₂ encerrada','info');
-  }
-}
-
-// ──────────────────────────────────────────────
-// STEPS / BATTERY
-// ──────────────────────────────────────────────
-async function getSteps(){
-  log('Solicitando passos…','info');
-  setBtnMeasuring('btn-steps','BUSCANDO…');
-  for(const c of [CMDS.STEPS,CMDS.STEPS2,CMDS.STEPS3]){
-    await writeAll(c); await sleep(200);
-  }
-  setTimeout(()=>{
-    if(document.getElementById('steps-val').textContent==='--'){
-      document.getElementById('btn-steps').textContent='↓ SYNC';
-      document.getElementById('btn-steps').classList.remove('active');
-    }
-  },5000);
-}
-
-async function getBattery(){
-  log('Lendo bateria…','info');
-  setBtnMeasuring('btn-bat','LENDO…');
-  for(const c of [CMDS.BATTERY,CMDS.BATTERY2]){
-    await writeAll(c); await sleep(200);
-  }
-  setTimeout(()=>{
-    document.getElementById('btn-bat').textContent='↓ LER';
-    document.getElementById('btn-bat').classList.remove('active');
-  },4000);
-}
-
-// ──────────────────────────────────────────────
-// WRITE — tenta todos os canais disponíveis
-// ──────────────────────────────────────────────
-async function write(bytes){
-  // Primary: be940001
-  if(S.ch_be940001){
-    try{
-      await S.ch_be940001.writeValueWithoutResponse(new Uint8Array(bytes));
-      return true;
-    } catch(e1){
-      try{ await S.ch_be940001.writeValue(new Uint8Array(bytes)); return true; }
-      catch(e2){ log(`✗ be940001: ${e2.message}`,'err'); }
-    }
-  }
-  return false;
-}
-
-async function writeAll(bytes){
-  const h = hexStr(bytes);
-  let sent=false;
-  const channels=[
-    {name:'be940001', ch:S.ch_be940001},
-    {name:'be940002', ch:S.ch_be940002},
-    {name:'ae01',     ch:S.ch_ae01},
-    {name:'uart_tx',  ch:S.ch_uart_tx},
-  ];
-  for(const {name,ch} of channels){
-    if(!ch) continue;
-    try{
-      await ch.writeValueWithoutResponse(new Uint8Array(bytes));
-      log(`→ [${name}] ${h}`,'dim');
-      sent=true;
-    } catch(e1){
-      try{
-        await ch.writeValue(new Uint8Array(bytes));
-        log(`→ [${name}+ack] ${h}`,'dim');
-        sent=true;
-      } catch(e2){}
-    }
-  }
-  if(!sent) log(`✗ Nenhum canal write disponível`,'err');
-}
-
-async function sendRaw(){
-  const raw = document.getElementById('raw-in').value.trim();
-  if(!raw) return;
-  const bytes = raw.split(/[\s,]+/).map(h=>parseInt(h,16)).filter(n=>!isNaN(n));
-  if(!bytes.length){ log('Comando inválido','err'); return; }
-  log(`Enviando raw: ${hexStr(bytes)}`,'info');
-  await writeAll(bytes);
-}
-
-// ──────────────────────────────────────────────
-// UI UPDATES
-// ──────────────────────────────────────────────
-function setHR(val){
-  S.lastHR=val;
-  document.getElementById('hr-val').textContent=val;
-  document.getElementById('hr-badge').textContent=`${classify(val,'hr')}`;
-  S.hrHistory.push(val);
-  if(S.hrHistory.length>40) S.hrHistory.shift();
-  drawLine('ecg-line',S.hrHistory,'50');
-  if(S.measuringHR){
-    clearMeasuringHR();
-    document.getElementById('btn-hr').textContent='✔ MEDIR FC';
-    document.getElementById('btn-hr').classList.add('done');
-    setTimeout(()=>{document.getElementById('btn-hr').classList.remove('done');document.getElementById('btn-hr').textContent='▶ MEDIR FC';},3000);
-  }
-}
-
-function setSpO2(val){
-  S.lastSPO2=val;
-  document.getElementById('spo2-val').textContent=val;
-  S.spo2History.push(val);
-  if(S.spo2History.length>40) S.spo2History.shift();
-  drawLine('spo2-line',S.spo2History,'50');
-  if(S.measuringSPO2){
-    clearMeasuringSPO2();
-    document.getElementById('btn-spo2').textContent='✔ MEDIR SPO₂';
-    document.getElementById('btn-spo2').classList.add('done');
-    setTimeout(()=>{document.getElementById('btn-spo2').classList.remove('done');document.getElementById('btn-spo2').textContent='▶ MEDIR SPO₂';},3000);
-  }
-}
-
-function setBattery(val){
-  document.getElementById('bat-val').textContent=val;
-  document.getElementById('btn-bat').textContent='✔ LER';
-  document.getElementById('btn-bat').classList.add('done');
-  setTimeout(()=>{document.getElementById('btn-bat').classList.remove('done');document.getElementById('btn-bat').textContent='↓ LER';},3000);
-}
-
-function drawLine(id, data, h){
-  if(data.length<2) return;
-  const min=Math.min(...data)-1, max=Math.max(...data)+1, range=max-min||1;
-  const pts=data.map((v,i)=>`${(i/(data.length-1))*200},${parseFloat(h)-(((v-min)/range)*(parseFloat(h)-6)+3)}`).join(' ');
-  document.getElementById(id).setAttribute('points',pts);
-}
-
-function classify(v,type){
-  if(type==='hr'){
-    if(v<60) return '↓ Bradicardia';
-    if(v<=100) return '✓ Normal';
-    if(v<=150) return '↑ Elevado';
-    return '⚠ Taquicardia';
-  }
-  return v>=95?'✓ Normal':v>=90?'↓ Baixo':'⚠ Crítico';
-}
-
-function clearMeasuringHR(){
-  S.measuringHR=false;
-  if(S.hrTimeout){ clearInterval(S.hrTimeout); S.hrTimeout=null; }
-  const btn=document.getElementById('btn-hr');
-  btn.classList.remove('active');
-  btn.textContent='▶ MEDIR FC';
-}
-function clearMeasuringSPO2(){
-  S.measuringSPO2=false;
-  if(S.spo2Timeout){ clearInterval(S.spo2Timeout); S.spo2Timeout=null; }
-  const btn=document.getElementById('btn-spo2');
-  btn.classList.remove('active');
-  btn.textContent='▶ MEDIR SPO₂';
-}
-function clearMeasuring(){ clearMeasuringHR(); clearMeasuringSPO2(); }
-
-function setBtnMeasuring(id,txt){
-  const btn=document.getElementById(id);
-  btn.textContent=txt;
-  btn.classList.remove('done');
-  btn.classList.add('active');
-}
-
-function setStatus(state,msg){
-  const dot=document.getElementById('dot');
-  dot.className='dot '+(state==='on'?'on':state==='busy'?'busy':'off');
-  document.getElementById('status-txt').textContent=msg;
-}
-
-function enableButtons(){
-  ['btn-hr','btn-spo2','btn-steps','btn-bat','raw-send'].forEach(id=>{
-    const el=document.getElementById(id); if(el) el.disabled=false;
-  });
-  document.querySelectorAll('.pb').forEach(b=>b.disabled=false);
-}
-
-function disableButtons(){
-  ['btn-hr','btn-spo2','btn-steps','btn-bat','raw-send'].forEach(id=>{
-    const el=document.getElementById(id); if(el) el.disabled=true;
-  });
-  document.querySelectorAll('.pb').forEach(b=>b.disabled=true);
-}
-
-// ──────────────────────────────────────────────
-// BUILD PRESETS
-// ──────────────────────────────────────────────
-(function buildPresets(){
-  const container=document.getElementById('presets');
-  PRESET_LIST.forEach(p=>{
-    const bytes=CMDS[p.key];
-    const btn=document.createElement('button');
-    btn.className='pb';
-    btn.textContent=p.name;
-    btn.disabled=true;
-    btn.dataset.key=p.key;
-    btn.onclick=async()=>{
-      document.getElementById('raw-in').value=hexStr(bytes);
-      log(`Preset: ${p.name} → ${hexStr(bytes)}`,'info');
-      await writeAll(bytes);
-      btn.classList.add('hit');
-      setTimeout(()=>btn.classList.remove('hit'),2000);
-    };
-    container.appendChild(btn);
-  });
-})();
-
-// ──────────────────────────────────────────────
-// HELPERS
-// ──────────────────────────────────────────────
-function hex(dv){ const b=[];for(let i=0;i<dv.byteLength;i++)b.push(dv.getUint8(i).toString(16).padStart(2,'0').toUpperCase());return b.join(' '); }
-function hexStr(arr){ return Array.from(arr).map(b=>b.toString(16).padStart(2,'0').toUpperCase()).join(' '); }
-function dvToArr(dv){ const b=[];for(let i=0;i<dv.byteLength;i++)b.push(dv.getUint8(i));return b; }
-function textDecode(dv){ let s='';for(let i=0;i<dv.byteLength;i++){const c=dv.getUint8(i);if(c>=32&&c<127)s+=String.fromCharCode(c);}return s.trim(); }
-function propsStr(p){ const a=[];if(p.read)a.push('R');if(p.write)a.push('W');if(p.writeWithoutResponse)a.push('WnR');if(p.notify)a.push('N');if(p.indicate)a.push('I');return a.join(','); }
-function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
-
-function ts(){ const n=new Date();return`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}:${String(n.getSeconds()).padStart(2,'0')}`; }
-
-function log(msg,cls=''){
-  const body=document.getElementById('log');
-  const d=document.createElement('div');
-  d.className='le';
-  d.innerHTML=`<span class="lt">${ts()}</span><span class="lm ${cls}">${msg}</span>`;
-  body.appendChild(d);
-  body.scrollTop=body.scrollHeight;
-  if(body.children.length>400) body.removeChild(body.children[0]);
-}
-function clearLog(){ document.getElementById('log').innerHTML=''; }
-
-// Init check
-if(!navigator.bluetooth){
-  log('❌ WebBluetooth não disponível!','err');
-  log('→ Abra no Chrome/Edge via HTTPS ou localhost','warn');
-} else {
-  log('✔ WebBluetooth disponível','ok');
-  log('Pronto para conectar ao R99 62E6','info');
-}
-</script>
+    document.getElementById("connectBtn").addEventListener("click", connectRing);
+    document.getElementById("cmd1Btn").addEventListener("click", () => sendCommand("01"));
+    document.getElementById("cmd2Btn").addEventListener("click", () => sendCommand("01 01"));
+    document.getElementById("disconnectBtn").addEventListener("click", disconnectRing);
+  </script>
 </body>
 </html>
