@@ -1,305 +1,245 @@
-<!doctype html>
-<html lang="pt-br">
+<!DOCTYPE html>
+<html lang="pt-BR">
 <head>
-<meta charset="utf-8">
-<title>Anel BLE Monitor</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Leitor BLE do Anel</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 900px;
+      margin: 30px auto;
+      padding: 20px;
+      background: #f7f7f7;
+      color: #222;
+    }
 
-<style>
-body{
-font-family:Arial;
-background:#0b0f14;
-color:white;
-padding:20px;
-}
+    h1 {
+      margin-bottom: 10px;
+    }
 
-button{
-padding:10px 15px;
-margin:5px;
-cursor:pointer;
-border:none;
-border-radius:6px;
-background:#00aaff;
-color:white;
-}
+    button {
+      padding: 12px 18px;
+      font-size: 16px;
+      cursor: pointer;
+      margin-right: 10px;
+      margin-bottom: 10px;
+    }
 
-input{
-padding:10px;
-width:350px;
-}
+    .box {
+      background: white;
+      border-radius: 10px;
+      padding: 15px;
+      margin-top: 15px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
 
-.card{
-background:#121821;
-padding:15px;
-border-radius:10px;
-margin-bottom:15px;
-}
+    pre {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      background: #111;
+      color: #0f0;
+      padding: 12px;
+      border-radius: 8px;
+      min-height: 160px;
+      overflow-x: auto;
+    }
 
-#log{
-background:black;
-color:#00ff88;
-padding:10px;
-height:280px;
-overflow:auto;
-border-radius:8px;
-font-family:monospace;
-}
-</style>
+    .row {
+      margin: 8px 0;
+    }
 
+    .label {
+      font-weight: bold;
+    }
+  </style>
 </head>
-
 <body>
-
-<h2>Monitor do Anel BLE</h2>
-
-<div class="card">
-<button id="connect">Conectar</button>
-<button id="disconnect">Desconectar</button>
-<button id="clear">Limpar Log</button>
-</div>
-
-<div class="card">
-Bateria: <span id="battery">--</span> %
-</div>
-
-<div class="card">
-Heart Rate: <span id="hr">--</span>
-</div>
-
-<div class="card">
-<input id="cmd" placeholder="comando ex: MEAS_START ou AA 55 0F 01">
-<button id="send">Enviar</button>
-</div>
-
-<div class="card">
-<div id="log"></div>
-</div>
-
-<script>
-
-const SERVICE_UART = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
-const RX = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
-const TX = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
-
-let device;
-let server;
-let rxChar;
-let txChar;
-
-function log(t){
-
-let logDiv=document.getElementById("log");
-
-let time=new Date().toLocaleTimeString();
-
-logDiv.innerHTML+="["+time+"] "+t+"<br>";
-
-logDiv.scrollTop=logDiv.scrollHeight;
-
-console.log(t);
-
-}
-
-function hex(buffer){
-
-return [...new Uint8Array(buffer)]
-.map(x=>x.toString(16).padStart(2,"0"))
-.join(" ");
-
-}
-
-document.getElementById("connect").onclick=async()=>{
-
-try{
-
-device = await navigator.bluetooth.requestDevice({
-
-acceptAllDevices:true,
-
-optionalServices:[
-
-SERVICE_UART,
-
-"battery_service",
-
-"device_information",
-
-"heart_rate",
-
-"0000fee7-0000-1000-8000-00805f9b34fb",
-
-"0000ae00-0000-1000-8000-00805f9b34fb",
-
-"be940000-7333-be46-b7ae-689e71722bd5"
-
-]
-
-});
-
-log("Dispositivo: "+device.name);
-
-server = await device.gatt.connect();
-
-log("Conectado");
-
-
-
-/* bateria */
-
-try{
-
-let battService=await server.getPrimaryService("battery_service");
-
-let battChar=await battService.getCharacteristic("battery_level");
-
-let batt=await battChar.readValue();
-
-document.getElementById("battery").innerText=batt.getUint8(0);
-
-}catch(e){
-
-log("Bateria não encontrada");
-
-}
-
-
-
-/* heart rate */
-
-try{
-
-let hrService=await server.getPrimaryService("heart_rate");
-
-let hrChar=await hrService.getCharacteristic("heart_rate_measurement");
-
-await hrChar.startNotifications();
-
-hrChar.addEventListener("characteristicvaluechanged",event=>{
-
-let value=event.target.value;
-
-let flags=value.getUint8(0);
-
-let hr;
-
-if(flags&0x01){
-
-hr=value.getUint16(1,true);
-
-}else{
-
-hr=value.getUint8(1);
-
-}
-
-document.getElementById("hr").innerText=hr;
-
-log("HR: "+hr);
-
-});
-
-}catch(e){
-
-log("Heart rate não disponível");
-
-}
-
-
-
-/* UART */
-
-try{
-
-let uartService=await server.getPrimaryService(SERVICE_UART);
-
-rxChar=await uartService.getCharacteristic(RX);
-
-txChar=await uartService.getCharacteristic(TX);
-
-await txChar.startNotifications();
-
-txChar.addEventListener("characteristicvaluechanged",event=>{
-
-let data=event.target.value.buffer;
-
-let txt=new TextDecoder().decode(data);
-
-log("RX texto: "+txt);
-
-log("RX hex: "+hex(data));
-
-});
-
-log("UART conectado");
-
-}catch(e){
-
-log("UART não encontrado");
-
-}
-
-
-
-}catch(e){
-
-log("ERRO: "+e.message);
-
-}
-
-};
-
-
-
-document.getElementById("disconnect").onclick=()=>{
-
-if(device && device.gatt.connected){
-
-device.gatt.disconnect();
-
-log("Desconectado");
-
-}
-
-};
-
-
-
-document.getElementById("clear").onclick=()=>{
-
-document.getElementById("log").innerHTML="";
-
-};
-
-
-
-document.getElementById("send").onclick=async()=>{
-
-let cmd=document.getElementById("cmd").value;
-
-if(!rxChar) return;
-
-
-
-if(cmd.includes(" ")){
-
-let bytes=cmd.split(" ").map(x=>parseInt(x,16));
-
-await rxChar.writeValue(new Uint8Array(bytes));
-
-log("TX HEX: "+cmd);
-
-}else{
-
-let enc=new TextEncoder();
-
-await rxChar.writeValue(enc.encode(cmd));
-
-log("TX TEXT: "+cmd);
-
-}
-
-};
-
-</script>
-
+  <h1>Conexão BLE com Anel</h1>
+  <p>Teste inicial para conectar ao anel e ler dados BLE em tempo real.</p>
+
+  <button id="connectBtn">Conectar ao anel</button>
+  <button id="disconnectBtn">Desconectar</button>
+
+  <div class="box">
+    <div class="row"><span class="label">Dispositivo:</span> <span id="deviceName">---</span></div>
+    <div class="row"><span class="label">Status:</span> <span id="status">Desconectado</span></div>
+  </div>
+
+  <div class="box">
+    <h3>Serviços e características encontrados</h3>
+    <pre id="servicesLog"></pre>
+  </div>
+
+  <div class="box">
+    <h3>Dados recebidos</h3>
+    <pre id="dataLog"></pre>
+  </div>
+
+  <script>
+    let device = null;
+    let server = null;
+    let activeCharacteristics = [];
+
+    const connectBtn = document.getElementById("connectBtn");
+    const disconnectBtn = document.getElementById("disconnectBtn");
+    const deviceNameEl = document.getElementById("deviceName");
+    const statusEl = document.getElementById("status");
+    const servicesLog = document.getElementById("servicesLog");
+    const dataLog = document.getElementById("dataLog");
+
+    function logService(text) {
+      servicesLog.textContent += text + "\n";
+    }
+
+    function logData(text) {
+      dataLog.textContent += text + "\n";
+      dataLog.scrollTop = dataLog.scrollHeight;
+    }
+
+    function setStatus(text) {
+      statusEl.textContent = text;
+    }
+
+    function toHex(buffer) {
+      return [...new Uint8Array(buffer)]
+        .map(b => b.toString(16).padStart(2, "0"))
+        .join(" ");
+    }
+
+    function toAscii(buffer) {
+      try {
+        return new TextDecoder().decode(buffer);
+      } catch (e) {
+        return "";
+      }
+    }
+
+    function handleNotification(event) {
+      const value = event.target.value;
+      const bytes = new Uint8Array(value.buffer);
+
+      const hex = [...bytes].map(b => b.toString(16).padStart(2, "0")).join(" ");
+      const ascii = toAscii(value.buffer);
+
+      logData(
+        `[${new Date().toLocaleTimeString()}] ${event.target.uuid}\nHEX: ${hex}\nASCII: ${ascii}\n`
+      );
+
+      // Exemplo simples:
+      // Se o dispositivo mandar "4b 00", o primeiro byte pode ser 75 em decimal.
+      if (bytes.length > 0) {
+        logData(`Decimal do 1º byte: ${bytes[0]}\n`);
+      }
+    }
+
+    async function connectBLE() {
+      try {
+        servicesLog.textContent = "";
+        dataLog.textContent = "";
+        activeCharacteristics = [];
+
+        setStatus("Solicitando dispositivo...");
+
+        // Filtro amplo para facilitar o teste inicial
+        device = await navigator.bluetooth.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: [
+            0x180D, // Heart Rate
+            0x180F, // Battery Service
+            0x181A  // Environmental Sensing
+          ]
+        });
+
+        deviceNameEl.textContent = device.name || "Sem nome";
+        setStatus("Conectando...");
+
+        device.addEventListener("gattserverdisconnected", onDisconnected);
+
+        server = await device.gatt.connect();
+        setStatus("Conectado");
+
+        const services = await server.getPrimaryServices();
+
+        logService(`Total de serviços: ${services.length}\n`);
+
+        for (const service of services) {
+          logService(`SERVICE: ${service.uuid}`);
+
+          const characteristics = await service.getCharacteristics();
+
+          for (const characteristic of characteristics) {
+            logService(
+              `  CHARACTERISTIC: ${characteristic.uuid}
+    properties:
+      read=${characteristic.properties.read}
+      write=${characteristic.properties.write}
+      writeWithoutResponse=${characteristic.properties.writeWithoutResponse}
+      notify=${characteristic.properties.notify}
+      indicate=${characteristic.properties.indicate}`
+            );
+
+            // Tenta ler valor inicial
+            if (characteristic.properties.read) {
+              try {
+                const value = await characteristic.readValue();
+                logData(
+                  `[LEITURA INICIAL] ${characteristic.uuid}\nHEX: ${toHex(value.buffer)}\nASCII: ${toAscii(value.buffer)}\n`
+                );
+              } catch (err) {
+                logData(`Erro ao ler ${characteristic.uuid}: ${err.message}\n`);
+              }
+            }
+
+            // Tenta assinar notificações
+            if (characteristic.properties.notify || characteristic.properties.indicate) {
+              try {
+                await characteristic.startNotifications();
+                characteristic.addEventListener("characteristicvaluechanged", handleNotification);
+                activeCharacteristics.push(characteristic);
+                logService(`  -> notificações ativadas em ${characteristic.uuid}`);
+              } catch (err) {
+                logService(`  -> falha ao ativar notificações em ${characteristic.uuid}: ${err.message}`);
+              }
+            }
+          }
+
+          logService("");
+        }
+      } catch (error) {
+        setStatus("Erro");
+        logData(`Erro: ${error.message}`);
+        console.error(error);
+      }
+    }
+
+    async function disconnectBLE() {
+      try {
+        for (const characteristic of activeCharacteristics) {
+          try {
+            characteristic.removeEventListener("characteristicvaluechanged", handleNotification);
+          } catch (e) {}
+        }
+
+        activeCharacteristics = [];
+
+        if (device && device.gatt && device.gatt.connected) {
+          device.gatt.disconnect();
+        }
+
+        setStatus("Desconectado");
+      } catch (error) {
+        logData(`Erro ao desconectar: ${error.message}`);
+      }
+    }
+
+    function onDisconnected() {
+      setStatus("Desconectado");
+      logData("Dispositivo desconectado.");
+    }
+
+    connectBtn.addEventListener("click", connectBLE);
+    disconnectBtn.addEventListener("click", disconnectBLE);
+  </script>
 </body>
 </html>
