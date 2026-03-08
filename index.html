@@ -3,243 +3,213 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Leitor BLE do Anel</title>
+  <title>Monitor do Anel BLE</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      max-width: 900px;
-      margin: 30px auto;
+      background: #f4f7fb;
+      margin: 0;
       padding: 20px;
-      background: #f7f7f7;
-      color: #222;
+      color: #1f2937;
+    }
+
+    .container {
+      max-width: 700px;
+      margin: 0 auto;
     }
 
     h1 {
       margin-bottom: 10px;
     }
 
-    button {
-      padding: 12px 18px;
-      font-size: 16px;
-      cursor: pointer;
-      margin-right: 10px;
-      margin-bottom: 10px;
-    }
-
-    .box {
+    .card {
       background: white;
+      border-radius: 16px;
+      padding: 20px;
+      margin-top: 16px;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.08);
+    }
+
+    button {
+      padding: 12px 16px;
+      font-size: 16px;
+      border: none;
       border-radius: 10px;
-      padding: 15px;
-      margin-top: 15px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      cursor: pointer;
+      margin-right: 8px;
     }
 
-    pre {
-      white-space: pre-wrap;
-      word-wrap: break-word;
-      background: #111;
-      color: #0f0;
-      padding: 12px;
-      border-radius: 8px;
-      min-height: 160px;
-      overflow-x: auto;
+    #connectBtn {
+      background: #2563eb;
+      color: white;
     }
 
-    .row {
-      margin: 8px 0;
+    #disconnectBtn {
+      background: #e5e7eb;
+      color: #111827;
+    }
+
+    .big {
+      font-size: 48px;
+      font-weight: bold;
+      margin-top: 10px;
     }
 
     .label {
       font-weight: bold;
     }
+
+    pre {
+      background: #111827;
+      color: #10b981;
+      padding: 14px;
+      border-radius: 12px;
+      white-space: pre-wrap;
+      overflow-x: auto;
+      min-height: 120px;
+    }
   </style>
 </head>
 <body>
-  <h1>Conexão BLE com Anel</h1>
-  <p>Teste inicial para conectar ao anel e ler dados BLE em tempo real.</p>
+  <div class="container">
+    <h1>Monitor do Anel BLE</h1>
+    <p>Leitura de frequência cardíaca em tempo real.</p>
 
-  <button id="connectBtn">Conectar ao anel</button>
-  <button id="disconnectBtn">Desconectar</button>
+    <div class="card">
+      <button id="connectBtn">Conectar anel</button>
+      <button id="disconnectBtn">Desconectar</button>
+      <p><span class="label">Status:</span> <span id="status">Desconectado</span></p>
+      <p><span class="label">Dispositivo:</span> <span id="deviceName">---</span></p>
+      <p><span class="label">Local do sensor:</span> <span id="sensorLocation">---</span></p>
+    </div>
 
-  <div class="box">
-    <div class="row"><span class="label">Dispositivo:</span> <span id="deviceName">---</span></div>
-    <div class="row"><span class="label">Status:</span> <span id="status">Desconectado</span></div>
-  </div>
+    <div class="card">
+      <div class="label">Frequência cardíaca</div>
+      <div class="big"><span id="heartRate">--</span> bpm</div>
+    </div>
 
-  <div class="box">
-    <h3>Serviços e características encontrados</h3>
-    <pre id="servicesLog"></pre>
-  </div>
-
-  <div class="box">
-    <h3>Dados recebidos</h3>
-    <pre id="dataLog"></pre>
+    <div class="card">
+      <div class="label">Log</div>
+      <pre id="log"></pre>
+    </div>
   </div>
 
   <script>
     let device = null;
     let server = null;
-    let activeCharacteristics = [];
+    let hrChar = null;
 
-    const connectBtn = document.getElementById("connectBtn");
-    const disconnectBtn = document.getElementById("disconnectBtn");
-    const deviceNameEl = document.getElementById("deviceName");
     const statusEl = document.getElementById("status");
-    const servicesLog = document.getElementById("servicesLog");
-    const dataLog = document.getElementById("dataLog");
+    const deviceNameEl = document.getElementById("deviceName");
+    const sensorLocationEl = document.getElementById("sensorLocation");
+    const heartRateEl = document.getElementById("heartRate");
+    const logEl = document.getElementById("log");
 
-    function logService(text) {
-      servicesLog.textContent += text + "\n";
+    function log(msg) {
+      logEl.textContent += msg + "\n";
+      logEl.scrollTop = logEl.scrollHeight;
+      console.log(msg);
     }
 
-    function logData(text) {
-      dataLog.textContent += text + "\n";
-      dataLog.scrollTop = dataLog.scrollHeight;
+    function setStatus(msg) {
+      statusEl.textContent = msg;
     }
 
-    function setStatus(text) {
-      statusEl.textContent = text;
+    function decodeSensorLocation(value) {
+      const code = value.getUint8(0);
+      const map = {
+        0: "Outro",
+        1: "Peito",
+        2: "Pulso",
+        3: "Dedo",
+        4: "Mão",
+        5: "Lóbulo da orelha",
+        6: "Pé"
+      };
+      return map[code] || `Desconhecido (${code})`;
     }
 
-    function toHex(buffer) {
-      return [...new Uint8Array(buffer)]
-        .map(b => b.toString(16).padStart(2, "0"))
-        .join(" ");
-    }
+    function parseHeartRate(dataView) {
+      const flags = dataView.getUint8(0);
+      const is16Bit = flags & 0x01;
 
-    function toAscii(buffer) {
-      try {
-        return new TextDecoder().decode(buffer);
-      } catch (e) {
-        return "";
+      if (is16Bit) {
+        return dataView.getUint16(1, true);
+      } else {
+        return dataView.getUint8(1);
       }
     }
 
-    function handleNotification(event) {
+    function handleHeartRateChanged(event) {
       const value = event.target.value;
-      const bytes = new Uint8Array(value.buffer);
-
-      const hex = [...bytes].map(b => b.toString(16).padStart(2, "0")).join(" ");
-      const ascii = toAscii(value.buffer);
-
-      logData(
-        `[${new Date().toLocaleTimeString()}] ${event.target.uuid}\nHEX: ${hex}\nASCII: ${ascii}\n`
-      );
-
-      // Exemplo simples:
-      // Se o dispositivo mandar "4b 00", o primeiro byte pode ser 75 em decimal.
-      if (bytes.length > 0) {
-        logData(`Decimal do 1º byte: ${bytes[0]}\n`);
-      }
+      const hr = parseHeartRate(value);
+      heartRateEl.textContent = hr;
+      log(`[${new Date().toLocaleTimeString()}] FC: ${hr} bpm`);
     }
 
-    async function connectBLE() {
+    async function connectRing() {
       try {
-        servicesLog.textContent = "";
-        dataLog.textContent = "";
-        activeCharacteristics = [];
-
+        logEl.textContent = "";
         setStatus("Solicitando dispositivo...");
 
-        // Filtro amplo para facilitar o teste inicial
         device = await navigator.bluetooth.requestDevice({
-          acceptAllDevices: true,
-          optionalServices: [
-            0x180D, // Heart Rate
-            0x180F, // Battery Service
-            0x181A  // Environmental Sensing
-          ]
+          filters: [{ services: ['heart_rate'] }],
+          optionalServices: ['heart_rate']
         });
 
         deviceNameEl.textContent = device.name || "Sem nome";
-        setStatus("Conectando...");
-
         device.addEventListener("gattserverdisconnected", onDisconnected);
 
+        setStatus("Conectando...");
         server = await device.gatt.connect();
+
+        const hrService = await server.getPrimaryService('heart_rate');
+
+        hrChar = await hrService.getCharacteristic('heart_rate_measurement');
+        const locationChar = await hrService.getCharacteristic('body_sensor_location');
+
+        const locationValue = await locationChar.readValue();
+        const sensorLocation = decodeSensorLocation(locationValue);
+        sensorLocationEl.textContent = sensorLocation;
+
+        await hrChar.startNotifications();
+        hrChar.addEventListener("characteristicvaluechanged", handleHeartRateChanged);
+
         setStatus("Conectado");
-
-        const services = await server.getPrimaryServices();
-
-        logService(`Total de serviços: ${services.length}\n`);
-
-        for (const service of services) {
-          logService(`SERVICE: ${service.uuid}`);
-
-          const characteristics = await service.getCharacteristics();
-
-          for (const characteristic of characteristics) {
-            logService(
-              `  CHARACTERISTIC: ${characteristic.uuid}
-    properties:
-      read=${characteristic.properties.read}
-      write=${characteristic.properties.write}
-      writeWithoutResponse=${characteristic.properties.writeWithoutResponse}
-      notify=${characteristic.properties.notify}
-      indicate=${characteristic.properties.indicate}`
-            );
-
-            // Tenta ler valor inicial
-            if (characteristic.properties.read) {
-              try {
-                const value = await characteristic.readValue();
-                logData(
-                  `[LEITURA INICIAL] ${characteristic.uuid}\nHEX: ${toHex(value.buffer)}\nASCII: ${toAscii(value.buffer)}\n`
-                );
-              } catch (err) {
-                logData(`Erro ao ler ${characteristic.uuid}: ${err.message}\n`);
-              }
-            }
-
-            // Tenta assinar notificações
-            if (characteristic.properties.notify || characteristic.properties.indicate) {
-              try {
-                await characteristic.startNotifications();
-                characteristic.addEventListener("characteristicvaluechanged", handleNotification);
-                activeCharacteristics.push(characteristic);
-                logService(`  -> notificações ativadas em ${characteristic.uuid}`);
-              } catch (err) {
-                logService(`  -> falha ao ativar notificações em ${characteristic.uuid}: ${err.message}`);
-              }
-            }
-          }
-
-          logService("");
-        }
+        log("Conectado com sucesso.");
+        log("Notificações de frequência cardíaca ativadas.");
+        log("Local do sensor: " + sensorLocation);
       } catch (error) {
         setStatus("Erro");
-        logData(`Erro: ${error.message}`);
+        log("Erro: " + error.message);
         console.error(error);
       }
     }
 
-    async function disconnectBLE() {
+    function disconnectRing() {
       try {
-        for (const characteristic of activeCharacteristics) {
-          try {
-            characteristic.removeEventListener("characteristicvaluechanged", handleNotification);
-          } catch (e) {}
+        if (hrChar) {
+          hrChar.removeEventListener("characteristicvaluechanged", handleHeartRateChanged);
         }
-
-        activeCharacteristics = [];
 
         if (device && device.gatt && device.gatt.connected) {
           device.gatt.disconnect();
         }
 
         setStatus("Desconectado");
+        log("Desconectado manualmente.");
       } catch (error) {
-        logData(`Erro ao desconectar: ${error.message}`);
+        log("Erro ao desconectar: " + error.message);
       }
     }
 
     function onDisconnected() {
       setStatus("Desconectado");
-      logData("Dispositivo desconectado.");
+      log("Dispositivo desconectado.");
     }
 
-    connectBtn.addEventListener("click", connectBLE);
-    disconnectBtn.addEventListener("click", disconnectBLE);
+    document.getElementById("connectBtn").addEventListener("click", connectRing);
+    document.getElementById("disconnectBtn").addEventListener("click", disconnectRing);
   </script>
 </body>
 </html>
