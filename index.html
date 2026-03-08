@@ -3,261 +3,139 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Teste de Comandos do Anel</title>
+  <title>Smart Ring Medical Monitor</title>
   <style>
-    body { font-family: Arial, sans-serif; background:#f4f7fb; margin:0; padding:20px; color:#1f2937; }
-    .wrap { max-width: 1000px; margin: 0 auto; }
-    .card { background:#fff; border-radius:16px; padding:18px; margin-top:16px; box-shadow:0 4px 18px rgba(0,0,0,.08); }
-    button { padding:12px 14px; margin:6px 6px 0 0; border:none; border-radius:10px; cursor:pointer; font-size:14px; }
-    .primary { background:#2563eb; color:#fff; }
+    body { font-family: Arial, sans-serif; background:#f4f7fb; padding:20px; color:#1f2937; }
+    .wrap { max-width:900px; margin:auto; }
+    .card { background:#fff; padding:18px; border-radius:16px; margin-top:16px; box-shadow:0 4px 18px rgba(0,0,0,.08); }
+    button { padding:12px 16px; margin:6px 6px 0 0; border:none; border-radius:10px; cursor:pointer; }
+    .blue { background:#2563eb; color:#fff; }
     .green { background:#059669; color:#fff; }
     .red { background:#dc2626; color:#fff; }
     .gray { background:#6b7280; color:#fff; }
-    pre { background:#111827; color:#10b981; padding:14px; border-radius:12px; white-space:pre-wrap; word-break:break-word; min-height:160px; }
-    input { width:100%; padding:10px; border-radius:10px; border:1px solid #d1d5db; box-sizing:border-box; margin-top:8px; }
+    .value { font-size:48px; font-weight:bold; }
+    pre { background:#111827; color:#10b981; padding:14px; border-radius:12px; min-height:180px; white-space:pre-wrap; }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="card">
-      <h2>Teste de Comandos do Anel</h2>
-      <button class="primary" id="connectBtn">Conectar</button>
-      <button class="gray" id="disconnectBtn">Desconectar</button>
-      <p><strong>Status:</strong> <span id="status">Desconectado</span></p>
-      <p><strong>Dispositivo:</strong> <span id="deviceName">---</span></p>
-    </div>
-
-    <div class="card">
-      <h3>Testes rápidos</h3>
-      <button class="green" id="test01">Enviar 01</button>
-      <button class="green" id="test0101">Enviar 01 01</button>
-      <button class="green" id="testA101">Enviar A1 01</button>
-      <button class="green" id="testA201">Enviar A2 01</button>
-      <button class="red" id="testStop">Enviar 00</button>
-
-      <p style="margin-top:12px;"><strong>Comando manual HEX</strong></p>
-      <input id="hexInput" placeholder="Ex.: 01 ou A1 01 ou FF 00 01" />
-      <button class="primary" id="sendManualBtn">Enviar manual</button>
-    </div>
-
-    <div class="card">
-      <h3>Log</h3>
-      <pre id="log"></pre>
-    </div>
+<div class="wrap">
+  <div class="card">
+    <h2>Smart Ring Medical Monitor</h2>
+    <button class="blue" id="connectBtn">Conectar</button>
+    <button class="green" id="hrBtn">Medir FC</button>
+    <button class="red" id="stopBtn">Parar</button>
+    <button class="gray" id="spo2Btn">Medir SpO₂</button>
+    <p><strong>Status:</strong> <span id="status">Desconectado</span></p>
+    <p><strong>Dispositivo:</strong> <span id="deviceName">---</span></p>
   </div>
 
-  <script>
-    let device = null;
-    let server = null;
+  <div class="card">
+    <div><strong>Frequência cardíaca</strong></div>
+    <div class="value"><span id="heartRate">--</span> bpm</div>
+  </div>
 
-    let hrNotify = null;
+  <div class="card">
+    <div><strong>Log BLE</strong></div>
+    <pre id="log"></pre>
+  </div>
+</div>
 
-    let uartWrite = null;
-    let uartNotify = null;
+<script>
+let device, server;
+let hrChar, beWrite, beNotify;
 
-    let beWrite = null;
-    let beNotify = null;
+const statusEl = document.getElementById("status");
+const deviceNameEl = document.getElementById("deviceName");
+const heartRateEl = document.getElementById("heartRate");
+const logEl = document.getElementById("log");
 
-    let aeWrite = null;
-    let aeNotify = null;
+function log(msg) {
+  const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  logEl.textContent += line + "\n";
+  logEl.scrollTop = logEl.scrollHeight;
+}
 
-    const logEl = document.getElementById("log");
-    const statusEl = document.getElementById("status");
-    const deviceNameEl = document.getElementById("deviceName");
+function setStatus(s) {
+  statusEl.textContent = s;
+}
 
-    function log(msg) {
-      const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
-      logEl.textContent += line + "\n";
-      logEl.scrollTop = logEl.scrollHeight;
-      console.log(line);
-    }
+function parseHeartRate(dataView) {
+  const flags = dataView.getUint8(0);
+  const is16Bit = flags & 0x01;
+  return is16Bit ? dataView.getUint16(1, true) : dataView.getUint8(1);
+}
 
-    function setStatus(msg) {
-      statusEl.textContent = msg;
-    }
+function handleHeartRate(event) {
+  const hr = parseHeartRate(event.target.value);
+  heartRateEl.textContent = hr;
+  log(`FC = ${hr} bpm`);
+}
 
-    function hexToBytes(hex) {
-      const clean = hex.replace(/[^0-9a-fA-F]/g, "");
-      if (!clean || clean.length % 2 !== 0) throw new Error("HEX inválido");
-      const arr = [];
-      for (let i = 0; i < clean.length; i += 2) {
-        arr.push(parseInt(clean.slice(i, i + 2), 16));
-      }
-      return new Uint8Array(arr);
-    }
+function hexToBytes(hex) {
+  const clean = hex.replace(/[^0-9a-fA-F]/g, "");
+  if (!clean || clean.length % 2 !== 0) throw new Error("HEX inválido");
+  const bytes = [];
+  for (let i = 0; i < clean.length; i += 2) {
+    bytes.push(parseInt(clean.slice(i, i + 2), 16));
+  }
+  return new Uint8Array(bytes);
+}
 
-    function bytesToHex(buffer) {
-      return [...new Uint8Array(buffer)].map(b => b.toString(16).padStart(2, "0")).join(" ");
-    }
+async function sendBE(hex) {
+  const bytes = hexToBytes(hex);
+  if (beWrite.properties.writeWithoutResponse) {
+    await beWrite.writeValueWithoutResponse(bytes);
+  } else {
+    await beWrite.writeValueWithResponse(bytes);
+  }
+  log(`Comando enviado em be940001: ${hex}`);
+}
 
-    function parseHeartRate(dataView) {
-      const flags = dataView.getUint8(0);
-      const is16Bit = flags & 0x01;
-      return is16Bit ? dataView.getUint16(1, true) : dataView.getUint8(1);
-    }
+async function connectRing() {
+  device = await navigator.bluetooth.requestDevice({
+    acceptAllDevices: true,
+    optionalServices: [
+      "heart_rate",
+      "be940000-7333-be46-b7ae-689e71722bd5"
+    ]
+  });
 
-    function handleHR(event) {
-      try {
-        const hr = parseHeartRate(event.target.value);
-        log(`2A37 -> FC = ${hr} bpm`);
-      } catch (e) {
-        log(`Erro parse FC: ${e.message}`);
-      }
-    }
+  deviceNameEl.textContent = device.name || "Sem nome";
+  device.addEventListener("gattserverdisconnected", () => {
+    setStatus("Desconectado");
+    log("Dispositivo desconectado");
+  });
 
-    function makeNotifyHandler(name) {
-      return function(event) {
-        const hex = bytesToHex(event.target.value.buffer);
-        log(`${name} -> ${hex}`);
-      };
-    }
+  setStatus("Conectando...");
+  server = await device.gatt.connect();
 
-    async function connectRing() {
-      try {
-        logEl.textContent = "";
-        setStatus("Solicitando dispositivo...");
+  const hrService = await server.getPrimaryService("heart_rate");
+  hrChar = await hrService.getCharacteristic("heart_rate_measurement");
+  await hrChar.startNotifications();
+  hrChar.addEventListener("characteristicvaluechanged", handleHeartRate);
 
-        device = await navigator.bluetooth.requestDevice({
-          acceptAllDevices: true,
-          optionalServices: [
-            "heart_rate",
-            "6e400001-b5a3-f393-e0a9-e50e24dcca9e",
-            "be940000-7333-be46-b7ae-689e71722bd5",
-            "0000ae00-0000-1000-8000-00805f9b34fb"
-          ]
-        });
+  const beService = await server.getPrimaryService("be940000-7333-be46-b7ae-689e71722bd5");
+  beWrite = await beService.getCharacteristic("be940001-7333-be46-b7ae-689e71722bd5");
+  beNotify = await beService.getCharacteristic("be940003-7333-be46-b7ae-689e71722bd5");
 
-        deviceNameEl.textContent = device.name || "Sem nome";
-        device.addEventListener("gattserverdisconnected", () => {
-          setStatus("Desconectado");
-          log("Dispositivo desconectado");
-        });
-
-        server = await device.gatt.connect();
-        setStatus("Conectado");
-        log("Conectado com sucesso");
-
-        // Heart rate
-        try {
-          const hrService = await server.getPrimaryService("heart_rate");
-          hrNotify = await hrService.getCharacteristic("heart_rate_measurement");
-          await hrNotify.startNotifications();
-          hrNotify.addEventListener("characteristicvaluechanged", handleHR);
-          log("Notify de FC ativado em 2A37");
-        } catch (e) {
-          log("FC padrão não disponível: " + e.message);
-        }
-
-        // UART 6e40
-        try {
-          const s = await server.getPrimaryService("6e400001-b5a3-f393-e0a9-e50e24dcca9e");
-          uartWrite = await s.getCharacteristic("6e400002-b5a3-f393-e0a9-e50e24dcca9e");
-          uartNotify = await s.getCharacteristic("6e400003-b5a3-f393-e0a9-e50e24dcca9e");
-          await uartNotify.startNotifications();
-          uartNotify.addEventListener("characteristicvaluechanged", makeNotifyHandler("6e400003"));
-          log("Canal UART 6e40 pronto");
-        } catch (e) {
-          log("6e40 indisponível: " + e.message);
-        }
-
-        // BE94
-        try {
-          const s = await server.getPrimaryService("be940000-7333-be46-b7ae-689e71722bd5");
-          beWrite = await s.getCharacteristic("be940001-7333-be46-b7ae-689e71722bd5");
-          beNotify = await s.getCharacteristic("be940003-7333-be46-b7ae-689e71722bd5");
-          await beNotify.startNotifications();
-          beNotify.addEventListener("characteristicvaluechanged", makeNotifyHandler("be940003"));
-          log("Canal BE94 pronto");
-        } catch (e) {
-          log("BE94 indisponível: " + e.message);
-        }
-
-        // AE00
-        try {
-          const s = await server.getPrimaryService("0000ae00-0000-1000-8000-00805f9b34fb");
-          aeWrite = await s.getCharacteristic("0000ae01-0000-1000-8000-00805f9b34fb");
-          aeNotify = await s.getCharacteristic("0000ae02-0000-1000-8000-00805f9b34fb");
-          await aeNotify.startNotifications();
-          aeNotify.addEventListener("characteristicvaluechanged", makeNotifyHandler("ae02"));
-          log("Canal AE00 pronto");
-        } catch (e) {
-          log("AE00 indisponível: " + e.message);
-        }
-
-        log("Pronto para testar comandos");
-      } catch (e) {
-        setStatus("Erro");
-        log("Erro: " + e.message);
-      }
-    }
-
-    async function sendToCandidates(hex) {
-      const bytes = hexToBytes(hex);
-      const sent = [];
-
-      if (uartWrite) {
-        try {
-          if (uartWrite.properties.writeWithoutResponse) {
-            await uartWrite.writeValueWithoutResponse(bytes);
-          } else {
-            await uartWrite.writeValueWithResponse(bytes);
-          }
-          sent.push("6e400002");
-        } catch (e) {
-          log("Falha 6e400002: " + e.message);
-        }
-      }
-
-      if (beWrite) {
-        try {
-          if (beWrite.properties.writeWithoutResponse) {
-            await beWrite.writeValueWithoutResponse(bytes);
-          } else if (beWrite.properties.write) {
-            await beWrite.writeValueWithResponse(bytes);
-          }
-          sent.push("be940001");
-        } catch (e) {
-          log("Falha be940001: " + e.message);
-        }
-      }
-
-      if (aeWrite) {
-        try {
-          if (aeWrite.properties.writeWithoutResponse) {
-            await aeWrite.writeValueWithoutResponse(bytes);
-          } else if (aeWrite.properties.write) {
-            await aeWrite.writeValueWithResponse(bytes);
-          }
-          sent.push("ae01");
-        } catch (e) {
-          log("Falha ae01: " + e.message);
-        }
-      }
-
-      log(`Comando ${hex} enviado para: ${sent.join(", ") || "nenhum canal"}`);
-    }
-
-    function disconnectRing() {
-      if (device && device.gatt && device.gatt.connected) {
-        device.gatt.disconnect();
-      }
-      setStatus("Desconectado");
-    }
-
-    document.getElementById("connectBtn").addEventListener("click", connectRing);
-    document.getElementById("disconnectBtn").addEventListener("click", disconnectRing);
-
-    document.getElementById("test01").addEventListener("click", () => sendToCandidates("01"));
-    document.getElementById("test0101").addEventListener("click", () => sendToCandidates("01 01"));
-    document.getElementById("testA101").addEventListener("click", () => sendToCandidates("A1 01"));
-    document.getElementById("testA201").addEventListener("click", () => sendToCandidates("A2 01"));
-    document.getElementById("testStop").addEventListener("click", () => sendToCandidates("00"));
-
-    document.getElementById("sendManualBtn").addEventListener("click", () => {
-      const hex = document.getElementById("hexInput").value.trim();
-      if (!hex) return;
-      sendToCandidates(hex);
+  try {
+    await beNotify.startNotifications();
+    beNotify.addEventListener("characteristicvaluechanged", (e) => {
+      const bytes = [...new Uint8Array(e.target.value.buffer)].map(b => b.toString(16).padStart(2, "0")).join(" ");
+      log(`be940003 -> ${bytes}`);
     });
-  </script>
+  } catch {}
+
+  setStatus("Conectado");
+  log("Conectado com sucesso");
+}
+
+document.getElementById("connectBtn").addEventListener("click", connectRing);
+
+// TROQUE ESTES HEX PELOS CONFIRMADOS NOS SEUS TESTES
+document.getElementById("hrBtn").addEventListener("click", () => sendBE("01"));
+document.getElementById("stopBtn").addEventListener("click", () => sendBE("00"));
+document.getElementById("spo2Btn").addEventListener("click", () => sendBE("02"));
+</script>
 </body>
 </html>
